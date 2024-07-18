@@ -5,6 +5,7 @@
 Code base for the paper [Planning with a Learned Policy Basis to Optimally Solve Complex Tasks](https://arxiv.org/abs/2403.15301) publisheed at ICAPS 2024.
 
 **Authors:** 
+
 Guillermo Infante, Anders Jonsson, Vicenç Gómez (AI&ML research group, Universitat Pompeu Fabra), David Kuric and Herke van Hoof (AMLab University of Amsterdam)
 
 
