@@ -1,3 +1,5 @@
+[![Python 3.10.1](https://img.shields.io/badge/Python-3.10.1-blue)](https://www.python.org/downloads/release/python-3101/)
+
 # SF-FSA-VI
 
 Code base for the paper [Planning with a Learned Policy Basis to Optimally Solve Complex Tasks](https://arxiv.org/abs/2403.15301) publisheed at ICAPS 2024.
