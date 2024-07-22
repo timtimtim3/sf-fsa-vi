@@ -1,0 +1,7 @@
+_target_: lof.algorithms.options.MetaPolicyQLearning
+gamma: 1
+lr: 0.3
+epsilon: 0.3
+num_episodes: 800
+episode_length: 200
+eval_freq: 500
