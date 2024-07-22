@@ -1,6 +1,9 @@
 [submodule "lof"]
 	path = lof
 	url = git@github.com:guillermoim/lof.git
+	ignore = dirty
 [submodule "sfols"]
 	path = sfols
 	url = git@github.com:guillermoim/sfols.git
+	ignore = dirty
+
