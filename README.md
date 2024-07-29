@@ -6,8 +6,8 @@ Code base for the paper [Planning with a Learned Policy Basis to Optimally Solve
 
 **Authors:** 
 
-- Guillermo Infante[^*], Anders Jonsson, Vicenç Gómez (AI&ML research group, Universitat Pompeu Fabra)
-- David Kuric[^*]. and Herke van Hoof (AMLab University of Amsterdam)
+- *Guillermo Infante[^*], Anders Jonsson and Vicenç Gómez* (AI&ML research group, Universitat Pompeu Fabra)
+- *David Kuric[^*]. and Herke van Hoof* (AMLab University of Amsterdam)
 
 
 ## *Abstract*
