@@ -1,5 +1,5 @@
 _target_: sfols.rl.successor_features.tabular_sf.SF
-alpha: 0.25
+alpha: 0.2
 gamma: 0.99
 initial_epsilon: 1
 final_epsilon: 0.1
@@ -9,6 +9,6 @@ use_replay: True
 per: False
 use_gpi: True
 envelope: False
-batch_size: 5
+batch_size: 10
 buffer_size: 5000
 log: True

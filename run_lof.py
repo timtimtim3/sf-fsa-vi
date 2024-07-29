@@ -36,8 +36,11 @@ def main(cfg: DictConfig) -> None:
 
     # Load the algorithm and run it
     lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_env, fsa=fsa, T=T)
-
     lof.learn_options()
+
+
+    # Once the base options have been learned, we can retrain the policy and keep track 
+    # of the results for the readaptation (planning), results
     lof.train_metapolicy(record=True)
 
     # Create and save options and metapolicy

@@ -1,4 +1,4 @@
-
+from fsa.planning import SFFSAValueIteration as ValueIteration
 from sfols.rl.utils.utils import policy_eval_exact
 from sfols.rl.successor_features.gpi import GPI
 from sfols.rl.successor_features.ols import OLS
@@ -9,6 +9,7 @@ from envs.wrappers import GridEnvWrapper
 from utils.utils import seed_everything 
 
 import pickle as pkl
+import numpy as np
 import wandb as wb
 import shutil
 import hydra
@@ -28,7 +29,7 @@ def main(cfg: DictConfig) -> None:
         # mode = "disabled"
 
     )
-    run.tags = run.tags #+ (cfg.wb.tag,)
+    run.tags = run.tags 
     
     # Set seeds
     seed_everything(cfg.seed)
@@ -46,16 +47,16 @@ def main(cfg: DictConfig) -> None:
 
     # Define the agent constructor and gpi agent
     def agent_constructor(log_prefix: str):
-        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, constraint=cfg.env.constraint)
+        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env)
 
     gpi_agent = GPI(train_env,
                     agent_constructor,
-                    
-                    **cfg.gpi.init)
+                    **cfg.gpi.init,
+                    planning_constraint=cfg.env.planning_constraint)
 
     # m = number of predicates
     # Need to add the constraint, which sets add some restriction to the extrema weights.
-    ols = OLS(m=train_env.feat_dim, **cfg.ols, restriction=cfg.env.constraint)
+    ols = OLS(m=train_env.feat_dim, **cfg.ols, restriction=cfg.env.restriction)
 
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
@@ -76,8 +77,6 @@ def main(cfg: DictConfig) -> None:
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
-        # wb.log({"fsa_reward": eval_reward,})
-    
 
     for i, pi in enumerate(gpi_agent.policies):
         d = vars(pi)
@@ -89,6 +88,34 @@ def main(cfg: DictConfig) -> None:
         wb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
 
         run.summary["policies_obtained"] = len(gpi_agent.policies)
+
+
+    # Once the low-level policies have been obtained we can retrain the high-level 
+    # policy and keep track of the results.
+
+    wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
+
+
+    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
+    W = None
+
+    times = []
+
+    for j in range(50):
+
+        W, time = planning.traverse(W, num_iters = 1)
+        times.append(time)
+        acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
+        log_dict = {"evaluation/acc_reward": acc_reward,
+                    "evaluation/iter": j,
+                    "evaluation/time": np.sum(times)}
+        
+        wb.log(log_dict)
+
+
+    wb.finish()
+
+
 
 if __name__ == "__main__":
     main()

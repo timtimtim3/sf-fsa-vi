@@ -1,9 +1,13 @@
-import numpy as np
+from typing import Optional, Union, List
 import time as time
+import numpy as np
 
 class SFFSAValueIteration:
 
-    def __init__(self, env, gpi, constraint) -> None:
+    def __init__(self, 
+                 env, 
+                 gpi, 
+                 constraint:Optional[dict] = None) -> None:
         
         self.env = env 
         self.fsa = self.env.fsa 
@@ -11,7 +15,9 @@ class SFFSAValueIteration:
         self.exit_states = self.env.exit_states
         self.constraint = constraint
 
-    def traverse(self, weights, k=10000):
+    def traverse(self, 
+                 weights: Optional[dict] = None, 
+                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
 
         exit_states = self.exit_states
 
@@ -24,7 +30,7 @@ class SFFSAValueIteration:
 
         timemarks = [0]
         
-        for _ in range(k):
+        for _ in range(num_iters):
 
             start_time = time.time()
 
@@ -63,7 +69,7 @@ class SFFSAValueIteration:
                 
                 if self.constraint:
                     for c in self.constraint:
-                        weights[c] = self.constraint[c] * 1000
+                        weights[c] = self.constraint[c]
 
                 W[uidx] = weights
             

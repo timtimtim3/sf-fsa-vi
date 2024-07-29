@@ -2,7 +2,7 @@ init:
   log: False
 
 learn:
-  total_timesteps: 9000
+  total_timesteps: 12000
   use_gpi: True
   eval_freq: 500
   reset_num_timesteps: False
