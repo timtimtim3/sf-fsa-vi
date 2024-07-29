@@ -1,33 +1,34 @@
+
+from sfols.rl.utils.utils import policy_eval_exact
+from sfols.rl.successor_features.gpi import GPI
+from sfols.rl.successor_features.ols import OLS
+from fsa.tasks_specification import load_fsa
+from omegaconf import DictConfig, OmegaConf
+from envs.wrappers import GridEnvWrapper
+
+from utils.utils import seed_everything 
+
+import pickle as pkl
+import wandb as wb
+import shutil
+import hydra
 import envs
 import gym
-import hydra
-from omegaconf import DictConfig, OmegaConf
-from sfols.rl.successor_features.ols import OLS
-from sfols.rl.utils.utils import policy_eval_exact, policy_evaluation_mo
-from sfols.rl.successor_features.gpi import GPI
-import pickle as pkl
 import os
-import shutil
-import wandb
-from envs.wrappers import GridEnvWrapper
-from fsa.tasks_specification import load_fsa
-# from rl.planning import SFFSAValueIteration as ValueIteration
-import numpy as np
-from utils.utils import seed_everything 
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     
     # Init Wandb
-    run = wandb.init(
+    run = wb.init(
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
         entity=cfg.wandb.entity, project=cfg.wandb.project,
         group="sfols", tags=["sfols"],
         # mode = "disabled"
 
     )
-    run.tags = run.tags #+ (cfg.wandb.tag,)
+    run.tags = run.tags #+ (cfg.wb.tag,)
     
     # Set seeds
     seed_everything(cfg.seed)
@@ -75,7 +76,7 @@ def main(cfg: DictConfig) -> None:
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
-        # wandb.log({"fsa_reward": eval_reward,})
+        # wb.log({"fsa_reward": eval_reward,})
     
 
     for i, pi in enumerate(gpi_agent.policies):
@@ -85,7 +86,7 @@ def main(cfg: DictConfig) -> None:
         d.pop("gpi")
         with open(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl", "wb") as fp:
             pkl.dump(d, fp)
-        wandb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
+        wb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
 
         run.summary["policies_obtained"] = len(gpi_agent.policies)
 
