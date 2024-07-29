@@ -1,0 +1,6 @@
+_target_: sfols.rl.successor_features.qvalue_iteration.QValueIteration
+gamma: 0.99
+delta: 1e-5
+gpi: None
+use_gpi: True
+log: False

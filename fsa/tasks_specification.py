@@ -4,19 +4,17 @@ import numpy as np
 
 def load_fsa(name: str, env):    
 
-    print(type(env))
-
     if name == "Delivery-v0-task1":
         init_fun = fsa_delivery1
-    elif name == "delivery_task2":
+    elif name == "Delivery-v0-task2":
         init_fun = fsa_delivery2
-    elif name == "delivery_task3":
+    elif name == "Delivery-v0-task3":
         init_fun = fsa_delivery3
-    elif name == "office_task1":
+    elif name == "Office-v0-task1":
         init_fun = fsa_office1
-    elif name == "office_task2":
+    elif name == "Office-v0-task2":
         init_fun = fsa_office2
-    elif name == "office_task3":
+    elif name == "Office-v0-task3":
         init_fun = fsa_office3
     elif name == "double_slit_task1":
         init_fun = fsa_double_slit1
@@ -29,8 +27,8 @@ def load_fsa(name: str, env):
 
 def fsa_double_slit1(env):
 
-    symbols_to_phi = {"O1": [0], 
-                      "O2": [1],}
+    symbols_to_phi = {"O1": 0, 
+                      "O2": 1,}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -39,7 +37,7 @@ def fsa_double_slit1(env):
 
     fsa.add_transition("u0", "u1", "O1 v O2")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[x], env.exit_states.values())) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -61,10 +59,10 @@ def fsa_delivery1(env):
     # Sequential: Go to A, then B, then C, then H.
     # A -> B -> C -> H
 
-    symbols_to_phi = {"A": [0], 
-                      "B": [1], 
-                      "C": [2], 
-                      "H": [3]}
+    symbols_to_phi = {"A": 0, 
+                      "B": 1, 
+                      "C": 2, 
+                      "H": 3}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -79,7 +77,7 @@ def fsa_delivery1(env):
     fsa.add_transition("u2", "u3", "C")
     fsa.add_transition("u3", "u4", "H")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -109,10 +107,10 @@ def fsa_delivery2(env):
     # OR: Go to A "OR" B, then C, then H.
     # (A v B ) -> C -> H
 
-    symbols_to_phi = {"A": [0], 
-                      "B": [1], 
-                      "C": [2], 
-                      "H": [3]}
+    symbols_to_phi = {"A": 0, 
+                      "B": 1, 
+                      "C": 2, 
+                      "H": 3}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -128,8 +126,7 @@ def fsa_delivery2(env):
     fsa.add_transition("u2", "u3", "C")
     fsa.add_transition("u3", "u4", "H")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
-
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
     # This is from u0 to u1 (via A) or u2 (via B)
@@ -164,10 +161,10 @@ def fsa_delivery3(env):
     # Composed: Go to A "AND" B in any order, then C, then H.
     # (A ^ B) -> C -> H
 
-    symbols_to_phi = {"A": [0], 
-                      "B": [1], 
-                      "C": [2], 
-                      "H": [3]}
+    symbols_to_phi = {"A": 0, 
+                      "B": 1, 
+                      "C": 2, 
+                      "H": 3}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -186,7 +183,7 @@ def fsa_delivery3(env):
     fsa.add_transition("u3", "u4", "C")
     fsa.add_transition("u4", "u5", "H")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -231,12 +228,12 @@ def fsa_office1(env):
     # COFFEE -> MAIL -> OFFICE
 
     # or task (Coffee, then mail, then office)
-    symbols_to_phi = {"C1": [0], 
-                      "C2": [1], 
-                      "O1": [2], 
-                      "O2": [3],
-                      "M1": [4],
-                      "M2": [5]}
+    symbols_to_phi = {"C1": 0, 
+                      "C2": 1, 
+                      "O1": 2, 
+                      "O2": 3,
+                      "M1": 4,
+                      "M2": 5}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -245,12 +242,12 @@ def fsa_office1(env):
     fsa.add_state("u2")
     fsa.add_state("u3")
 
-    fsa.add_transition("u0", "u1", "C1 v C2")
-    fsa.add_transition("u1", "u2", "M1 v M2")
-    fsa.add_transition("u2", "u3", "O1 v O2")
+    fsa.add_transition("u0", "u1", ["C1", "C2"])
+    fsa.add_transition("u1", "u2", ["M1", "M2"])
+    fsa.add_transition("u2", "u3", ["O1", "O2"])
 
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -284,12 +281,12 @@ def fsa_office2(env):
     # OR: Get coffee OR email, then office.
     # (COFFEE v MAIL) -> OFFICE
 
-    symbols_to_phi = {"C1": [0], 
-                      "C2": [1], 
-                      "O1": [2], 
-                      "O2": [3],
-                      "M1": [4],
-                      "M2": [5]}
+    symbols_to_phi = {"C1": 0, 
+                      "C2": 1, 
+                      "O1": 2, 
+                      "O2": 3,
+                      "M1": 4,
+                      "M2": 5}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -303,8 +300,7 @@ def fsa_office2(env):
     fsa.add_transition("u1", "u3", "O1 v O2")
     fsa.add_transition("u2", "u3", "O1 v O2")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
-
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -349,12 +345,12 @@ def fsa_office3(env):
     # Composite: Get mail AND coffee in any order, then go to an office
     # (COFEE ^ MAIL) -> OFFICE
 
-    symbols_to_phi = {"C1": [0], 
-                      "C2": [1], 
-                      "O1": [2], 
-                      "O2": [3],
-                      "M1": [4],
-                      "M2": [5]}
+    symbols_to_phi = {"C1": 0, 
+                      "C2": 1, 
+                      "O1": 2, 
+                      "O2": 3,
+                      "M1": 4,
+                      "M2": 5}
     
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -370,8 +366,7 @@ def fsa_office3(env):
     fsa.add_transition("u2", "u3", "C1 v C2")
     fsa.add_transition("u3", "u4", "O1 v O2")
 
-    exit_states_idxs = list(map(lambda x: env.states.index(x), env.exit_states.values())) 
-
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 

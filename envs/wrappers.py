@@ -8,9 +8,12 @@ class GridEnvWrapper(gym.Env):
 
         self.env = env 
         self.fsa = fsa
+        self.exit_states = self.env.unwrapped.exit_states
+        self.PHI_OBJ_TYPES = env.PHI_OBJ_TYPES
         self.fsa_init_state = fsa_init_state
         self.T = T
-
+        self.feat_dim = env.feat_dim
+        
     def get_state(self):
 
         return (self.fsa_state, tuple(self.env.state))
@@ -20,7 +23,7 @@ class GridEnvWrapper(gym.Env):
         self.fsa_state = self.fsa_init_state
         self.state = tuple(self.env.reset())
         
-        return (self.fsa_state, self.state)
+        return (self.fsa_state, self.state), {"proposition": self.env.MAP[self.state]}
 
     def step(self, action):
         """
@@ -28,7 +31,7 @@ class GridEnvWrapper(gym.Env):
         """
         _, _ ,  _ , phi = self.env.step(action) 
         state = self.env.state
-        state_index = self.env.states.index(state)
+        state_index = self.env.coords_to_state[state]
 
         fsa_state_index = self.fsa.states.index(self.fsa_state)
 

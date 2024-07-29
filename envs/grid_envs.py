@@ -42,18 +42,16 @@ class GridEnv(ABC, gym.Env):
         self.occupied = set()
         self.object_ids = dict()
 
-        self.states = []
-
         for c in range(self.width):
             for r in range(self.height):
-                self.states.append((r, c))
-                if self.MAP[r, c] == '_':
-                    self.initial.append((r, c))
-                elif self.MAP[r, c] == 'X':
+                if self.MAP[r, c] == 'X':
                     self.occupied.add((r, c))
+                    continue
+                elif self.MAP[r, c] == '_':
+                    self.initial.append((r, c))
                 elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
                     self.object_ids[(r, c)] = len(self.object_ids)
-                    if add_obj_to_start:
+                    if add_obj_to_start and self.MAP[r, c] != "O":
                         self.initial.append((r, c))
 
         self.w = np.zeros(self.feat_dim)
@@ -81,18 +79,20 @@ class GridEnv(ABC, gym.Env):
         raise NotImplementedError
 
     def _create_transition_function_base(self):
-        # Basic movement
+        # Create transition matrix
         self.P = np.zeros((self.s_dim, self.a_dim, self.s_dim))
-        for start_s in range(self.s_dim):
-            for eff_a in range(self.a_dim):
-                start_coords = self.state_to_coords[start_s]
-                new_coords = self.base_movement(start_coords, eff_a)
-                new_s = self.coords_to_state[new_coords]
+
+        for start_state in range(self.s_dim):
+            for action in range(self.a_dim):
+                start_coords = self.state_to_coords[start_state]
+                next_coords = self.base_movement(start_coords, action)
+                next_state = self.coords_to_state[next_coords]
+                # Fill out transition matrix accounting for randomness
                 for a in range(self.a_dim):
-                    if eff_a == a:
-                        self.P[start_s, a, new_s] += 1-self.random_act_prob
+                    if action == a:
+                        self.P[start_state, a, next_state] += 1-self.random_act_prob
                     else:
-                        self.P[start_s, a, new_s] += self.random_act_prob / (self.a_dim-1)
+                        self.P[start_state, a, next_state] += self.random_act_prob / (self.a_dim-1)
         # sanity check
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
@@ -114,15 +114,16 @@ class GridEnv(ABC, gym.Env):
         return self.state_to_array(self.state)
     
     def random_reset(self):
-        states = [s for s in self.states if s not in self.exit_states]
-
+        # TODO: ?
+        # states = [state for state in self.coords_to_state if state not in self.exit_states and self.MAP[state] != "O"]
+        states = [state for state in self.coords_to_state if state not in self.exit_states]
         random_idx = np.random.randint(0, len(states))
-
         self.state = states[random_idx] 
 
         return self.state_to_array(self.state)
 
     def base_movement(self, coords, action):
+        
         row, col = coords
 
         if action == self.LEFT:
@@ -156,9 +157,10 @@ class GridEnv(ABC, gym.Env):
         prop = self.MAP[new_state]
         return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition':prop}
 
-    # ===========================================================================
-    # STATE ENCODING FOR DEEP LEARNING
-    # ===========================================================================
+    # =========================================================================== #
+    # STATE ENCODING FOR DEEP LEARNING                                            #
+    # =========================================================================== #
+    
     def encode(self, state):
         # (y, x), coll = state
         # n_state = self.width + self.height
@@ -241,6 +243,47 @@ class GridEnv(ABC, gym.Env):
 
     def custom_render(self, square_map: dict[tuple[int, int]]):
         pass
+    
+class Office(GridEnv):
+
+    MAP = np.array([ [' ', ' ', 'C1',' ', ' ',  'X', ' ', 'C2', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
+                     ['M2',' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  'X', 'O2', ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', 'X', 'X', ' ', ' ',  'X', ' ',  ' ', 'X',  'X',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', '_', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
+                     ['O1', ' ',' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  'M1'],])
+    
+    PHI_OBJ_TYPES = ['C1', 'C2', 'O1', 'O2', 'M1', 'M2']
+    
+    """
+    A simplified version of the office environment introduced in [1].
+    This simplified version consists of 2 coffee machines and 2 office locations.
+
+    [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
+    """
+
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
+        self._create_coord_mapping()
+        self._create_transition_function()
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
+
+        self.exit_states = exit_states
+
+
+    def _create_transition_function(self):
+        self._create_transition_function_base()
+
+
 
 class Delivery(GridEnv):
     
@@ -260,7 +303,7 @@ class Delivery(GridEnv):
                     ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
                     ['O', 'O', 'O', ' ', 'O', 'O', 'O', 'H', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],])
     
-    PHI_OBJ_TYPES = ['A', 'B', 'C', 'H']
+    PHI_OBJ_TYPES = ['A', 'B', 'C', 'H', 'O']
     
     """
     A simplified version of the office environment introduced in [1].
@@ -269,7 +312,7 @@ class Delivery(GridEnv):
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
 
-    def __init__(self, add_obj_to_start=True, random_act_prob=0.0):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
         self._create_coord_mapping()
         self._create_transition_function()
@@ -277,6 +320,8 @@ class Delivery(GridEnv):
         exit_states = {}
         for s in self.object_ids:
             symbol = self.MAP[s]
+            if symbol in ("O"):
+                continue
             exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
         
         if not add_obj_to_start:
@@ -284,7 +329,6 @@ class Delivery(GridEnv):
             self.initial.append(exit_states[home_state])
 
         self.exit_states = exit_states
-
 
     def _create_transition_function(self):
         self._create_transition_function_base()
@@ -296,9 +340,7 @@ class Delivery(GridEnv):
         if s1 in self.object_ids:
             y, x = s1
             object_index = self.all_objects[self.MAP[y, x]]
-            phi[object_index] = 1.
-        elif self.MAP[s1] == "O":
-            phi[:] = -100
+            phi[object_index] = 1. if self.MAP[s1] != "O" else -1
         
         return phi
 
@@ -318,6 +360,35 @@ class Delivery(GridEnv):
             else:
                 continue
             square.set_color(*color)
+
+    def step(self, action):
+        # Movement
+        old_state = self.state
+        old_state_index = self.coords_to_state[old_state]
+        new_state_index = np.random.choice(a=self.s_dim, p=self.P[old_state_index, action])
+        new_state = self.state_to_coords[new_state_index]
+
+        phi = self.features(old_state, action, new_state)
+
+        self.state = new_state
+
+        # Determine features and rewards
+        reward = self.reward(old_state)
+        done = self.MAP[new_state] in self.PHI_OBJ_TYPES and self.MAP[new_state] != 'O'
+        prop = self.MAP[new_state]
+        
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition' : prop}
+
+    def reward(self, state):
+
+        reward = -1 
+
+        y, x = state
+
+        if self.MAP[y][x] == 'O':
+            reward = -1000 
+
+        return reward
 
 class DoubleSlit(GridEnv):
     MAP = np.array([
@@ -344,19 +415,6 @@ class DoubleSlit(GridEnv):
         ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'O2', 'X']
 
     ])
-
-    # MAP = np.array([
-    #     ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'O1', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-    #     ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'O2', 'X']
-    #
-    # ])
 
     PHI_OBJ_TYPES = ['O1', 'O2']
     UP, RIGHT, DOWN = 0, 1, 2
@@ -427,250 +485,3 @@ class DoubleSlit(GridEnv):
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
 
-class DoubleSlitRS(DoubleSlit):
-    def __init__(self, discount: float=0.95, random_act_prob=0.0, add_obj_to_start=False, max_wind=1, ):
-        """
-        Creates a new instance of the coffee environment.
-
-        """
-        super().__init__(random_act_prob=0.0, add_obj_to_start=False, max_wind=1)
-        self.discount = discount
-        self._create_potentials()
-
-    def _create_potentials(self):
-        self.potentials = np.zeros((self.s_dim, self.feat_dim))
-        for obj_id in range(self.feat_dim):
-            obj_coords = list(self.object_ids.keys())[obj_id]
-            for s in range(self.s_dim):
-                cell_coords = self.state_to_coords[s]
-                if cell_coords in self.object_ids or cell_coords[1] == 0:
-                    continue
-                diff_y = np.abs(cell_coords[0] - obj_coords[0])
-                diff_x = np.abs(cell_coords[1] - obj_coords[1])
-                dist = diff_y
-
-                remainder = diff_x - diff_y
-                dist += remainder // 2 + remainder % 2
-                self.potentials[s, obj_id] = -dist
-
-    def features(self, state_coords, action, next_state_coords):
-        s = self.coords_to_state[state_coords]
-        s_next = self.coords_to_state[next_state_coords]
-        nc = self.feat_dim
-        phi = np.zeros(nc, dtype=np.float32)
-        if next_state_coords in self.object_ids:
-            y, x = next_state_coords
-            object_index = self.all_objects[self.MAP[y, x]]
-            phi[object_index] = 1.
-        phi = phi + self.discount * self.potentials[s_next] - self.potentials[s]
-        return phi
-
-
-class Office(GridEnv):
-    # MAP = np.array([ ['O1',' ', ' ', ' ', ' ', 'X', 'C2', ' ', ' ',   ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ',  ' ',  ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ',  ' ',  ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ',  ' ',  ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', 'M2','X', ' ',  ' ',  ' ',  ' ',  'O2'],
-    #                  ['X', 'X', ' ', 'X', 'X', 'X', ' ',  'X',  'X',  ' ',  'X'],
-    #                  [' ', ' ', ' ', ' ', ' ','X', ' ',  ' ',  ' ',  ' ',  'M1'],
-    #                  [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ',  ' ',  ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', ' ', ' ', ' ',  'C1', ' ',  ' ',  ' '],
-    #                  [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ',  ' ',  ' ',  ' '],
-    #                  [' ', ' ', '_', ' ', ' ', 'X', ' ',  ' ',  ' ', ' ', ' '],])
-    
-
-    # MAP = np.array([[' ', ' ', ' ',   'X', ' ', 'C2', ' ', ' '],
-    #                  [' ', ' ', 'C1', 'X', 'X', ' ', ' ', ' '],
-    #                  ['M2', ' ', ' ',  ' ', 'X', 'O2', ' ', ' '],
-    #                  [' ', ' ', ' ',  ' ',  'X', ' ', ' ', ' '],
-    #                  [' ', ' ', ' ',  ' ',  'X', ' ', ' ', ' '],
-    #                  [' ', ' ', ' ',  ' ',  ' ', ' ', ' ', ' '],
-    #                  [' ', ' ', '_',  ' ',  ' ', ' ', ' ', ' '],
-    #                  ['O1', ' ',' ',  ' ',  ' ', ' ', ' ', 'M1'], ])
-
-    MAP = np.array([ [' ', ' ', 'C1',' ', ' ',  'X', ' ', 'C2', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     ['M2',' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', 'O2', ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', 'X', 'X', ' ', ' ',  'X', ' ',  ' ', 'X',  'X',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', '_', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     ['O1', ' ',' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  'M1'],])
-    
-    PHI_OBJ_TYPES = ['C1', 'C2', 'O1', 'O2', 'M1', 'M2']
-    
-    """
-    A simplified version of the office environment introduced in [1].
-    This simplified version consists of 2 coffee machines and 2 office locations.
-
-    [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
-    """
-
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
-        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
-        self._create_coord_mapping()
-        self._create_transition_function()
-
-        exit_states = {}
-        for s in self.object_ids:
-            symbol = self.MAP[s]
-            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
-
-        self.exit_states = exit_states
-
-
-    def _create_transition_function(self):
-        self._create_transition_function_base()
-
-class ShapesColors(GridEnv):
-    MAP = np.array([ [' ', ' ','S2',  ' ',  ' ', ' ', 'C3', ' '],
-                     [' ', ' ',' ',  ' ',  ' ', ' ', ' ', ' '],
-                     ['C1', ' ',' ',  ' ',  ' ', ' ', ' ', ' '],
-                     [' ', ' ',' ',  ' ',  ' ', ' ', 'S1', ' '],
-                     [' ', ' ',' ',  ' ',  'C2', ' ', ' ', ' '],
-                     [' ', '_',' ',  ' ',  ' ', ' ', ' ', ' '],
-                     [' ', ' ',' ',  ' ',  ' ', ' ', ' ', ' '],
-                     ['S3', ' ',' ',  ' ',  ' ', ' ', ' ', ' '], ])
-    
-    PHI_OBJ_TYPES = ['C1', 'C2', 'O1', 'O2', 'M1', 'M2', 'D1', 'D2']
-    
-    """
-    A simplified version of the office environment introduced in [1].
-    This simplified version consists of 2 coffee machines and 2 office locations.
-
-    [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
-    """
-
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
-        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
-        self._create_coord_mapping()
-        self._create_transition_function()
-
-        exit_states = {}
-        for s in self.object_ids:
-            symbol = self.MAP[s]
-            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
-
-        self.exit_states = exit_states
-
-
-    def _create_transition_function(self):
-        self._create_transition_function_base()
-
-
-def make_ice_corridor_map():
-    SHORT_PATH_LENGTH = 2  # From start to slippery
-    CENTRAL_PATH_LENGTH = 1  # From start to top of middle corridor
-    LONG_PATH_LENGTH = 10  # From middle corridor to goal
-    assert (LONG_PATH_LENGTH - SHORT_PATH_LENGTH - CENTRAL_PATH_LENGTH + 4) % 2 == 1  # Should be even
-    WIDTH = LONG_PATH_LENGTH - SHORT_PATH_LENGTH - CENTRAL_PATH_LENGTH + 4
-    MIDDLE_CELL = WIDTH // 2
-
-    border_block = ['X'] * WIDTH
-    common_block = ['X'] * WIDTH
-    common_block[1] = ' '
-    common_block[-2] = ' '
-    common_block[MIDDLE_CELL] = ' '
-    corridor_block = [' '] * WIDTH
-    corridor_block[0] = 'X'
-    corridor_block[-1] = 'X'
-
-
-    map = [border_block.copy()]
-    map.append(corridor_block.copy())
-    map[1][MIDDLE_CELL] = 'TS'
-    map[1][MIDDLE_CELL - 1] = 'O1'
-    map[1][MIDDLE_CELL + 1] = 'O2'
-    for _ in range(SHORT_PATH_LENGTH - 1):
-        map.append(common_block.copy())
-    map.append(common_block.copy())
-    map[-1][MIDDLE_CELL] = '_'
-    for _ in range(CENTRAL_PATH_LENGTH - 1):
-        map.append(common_block.copy())
-    map.append(corridor_block.copy())
-    map.append(border_block.copy())
-    return np.array(map)
-
-
-class IceCorridor(GridEnv):
-    MAP = make_ice_corridor_map()
-    PHI_OBJ_TYPES = ['O1', 'O2']
-
-    def __init__(self, random_act_prob=0.0, add_obj_to_start=False):
-        """
-        Creates a new instance of the coffee environment.
-
-        """
-        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
-        self.ice_start = list()
-        self.ice_end = list()
-
-        # Add teleport
-        for c in range(self.width):
-            for r in range(self.height):
-                if self.MAP[r, c] == 'TS':
-                    self.ice_start.append((r, c))
-                elif self.MAP[r, c] in {'O1', 'O2'}:
-                    self.ice_end.append((r, c))
-
-        exit_states = {}
-        for s in self.object_ids:
-            symbol = self.MAP[s]
-            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
-
-        self.exit_states = exit_states
-
-        self._create_coord_mapping()
-        self._create_transition_function()
-
-    def custom_render(self, square_map: dict[tuple[int, int]]):
-        for square_coords in square_map:
-            square = square_map[square_coords]
-            # Teleport
-            if self.MAP[square_coords] == 'TS':
-                color = [1, 0, 0]
-            elif self.MAP[square_coords] == '_':
-                color = [0, 1, 0]
-            else:
-                continue
-            square.set_color(*color)
-
-    def _create_transition_function(self):
-        # Basic grid env transitions
-        self. _create_transition_function_base()
-
-        # Specific teleport addition
-        teleport_state = self.coords_to_state[self.ice_start[0]]
-        for start_s in range(self.s_dim):
-            for a in range(self.a_dim):
-                if self.P[start_s, a, teleport_state] >= 0:
-                    if self.state_to_coords[start_s] in self.ice_end:
-                        self.P[start_s, a, start_s] += self.P[start_s, a, teleport_state]
-                        self.P[start_s, a, teleport_state] = 0
-                    else:
-                        for i in self.ice_end:
-                            self.P[start_s, a, self.coords_to_state[i]] += 1.0/len(self.object_ids) * self.P[start_s, a, teleport_state]
-                        self.P[start_s, a, teleport_state] = 0
-
-        # sanity check
-        assert np.allclose(np.sum(self.P, axis=2), 1)
-
-
-
-
-if __name__ == '__main__':
-    env = IceCorridor(random_act_prob=0)
-    gamma = 0.99
-    w = np.array([1.0, 0.0])
-
-    for i in range(50):
-        env.reset()
-        while True:
-            state, reward, done, info = env.step(env.action_space.sample())
-            env.render()
-            if done:
-                break

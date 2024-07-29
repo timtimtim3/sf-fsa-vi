@@ -1,8 +1,11 @@
 defaults:
   - _self_
   - env: ???
+  - ols: default
+  - gpi: default
   - algorithm: ???
   - wandb: default
 
 seed: ???
-num_iters: 50
+num_iters: 100
+max_iter_ols: 30
