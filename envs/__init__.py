@@ -1,5 +1,12 @@
 import gym
 
+# ANCHOR: PickupDropoff
+gym.envs.register(
+    id='PickupDropoff-v0',
+    entry_point='envs.grid_envs:PickupDropoff',
+    max_episode_steps=400,
+)
+
 # ANCHOR: Office environments
 gym.envs.register(
     id='Office-v0',

@@ -484,4 +484,138 @@ class DoubleSlit(GridEnv):
         # sanity check
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
+class PickupDropoff(GridEnv):
 
+    MAP = np.array([ [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  ' '],
+                     [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  'A'],
+                     [' ', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>',  ' ',  ' '],
+                     ['H', '>', '>', '>', '>', '>', '>', '>', '>', '>', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', '>', 'X', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', 'X', 'X', 'X',  ' ',  ' '],
+                     ['_', '>', '>', '>', '>', '>', '>', 'X', 'X', 'X', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', 'X', 'X', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', '>', 'X', 'X',  ' ',  ' '],
+                     ['C', '>', '>', '>', '>', '>', '>', '>', '>', '>', 'X',  ' ',  ' '],
+                     [' ', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>',  ' ',  ' '],
+                     [' ', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',  ' ',  ' '],
+                     [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  'T'],
+                     [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  ' '],])
+    
+    PHI_OBJ_TYPES = ['H', 'C', 'A', 'T']
+    
+    """
+    New environment.
+
+    """
+
+    def __init__(self, random_act_prob=0.0, add_obj_to_start=False, max_wind=1):
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
+        self._max_wind = max_wind
+        self._create_coord_mapping()
+        self._create_transition_function()
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
+
+        self.exit_states = exit_states
+
+    # 
+    def coords_act_transition_distr(self, coords, action):
+        row, col = coords
+        distr = []
+
+        if self.MAP[(row, col)] == ">":
+
+            for wind in range(-self._max_wind, self._max_wind + 1, 1):
+                
+                new_row = row
+                new_col = col
+
+                vert_move = wind - (action == self.UP) + (action == self.DOWN)
+                horiz_move = 1 + (action == self.RIGHT)
+
+                # Check vert move
+                direction = -1 if vert_move < 0 else 1
+                while vert_move != 0:
+                    vert_move -= direction
+                    if (new_row + direction, new_col) not in self.occupied:
+                        new_row = min(self.height - 1, new_row + direction)
+                        new_row = max(0, new_row)
+
+                # Check horiz move
+                direction = -1 if horiz_move < 0 else 1
+                while horiz_move != 0:
+                    horiz_move -= direction
+                    if (new_row, new_col + direction) not in self.occupied:
+                        new_col = min(self.width - 1, new_col + direction)
+                        new_col = max(0, new_col)
+
+                entry = ((new_row, new_col), 1.0/(self._max_wind * 2 + 1))
+                distr.append(entry)
+
+        else:
+            next_states = [self.base_movement(coords, a)  for a in range(self.a_dim)]
+            probs = [1-self.random_act_prob if a == action else self.random_act_prob / (self.a_dim-1) for a in range(self.a_dim)]
+            
+            distr = list(zip(next_states, probs))
+
+        return distr
+
+    def _create_transition_function(self):
+        # Basic movement
+        self.P = np.zeros((self.s_dim, self.a_dim, self.s_dim))
+        for start_s in range(self.s_dim):
+            for eff_a in range(self.a_dim):
+                start_coords = self.state_to_coords[start_s]
+                # if start_coords in self.object_ids:
+                    # self.P[start_s, eff_a, start_s] += 1  # Set transitions in goal states to 1 to pass the sanity check
+                    # continue
+                distr = self.coords_act_transition_distr(coords=start_coords, action=eff_a)
+                for end_coords, prob in distr:
+                    new_s = self.coords_to_state[end_coords]
+                    self.P[start_s, eff_a, new_s] += prob
+        # sanity check
+        assert np.allclose(np.sum(self.P, axis=2), 1)
+
+    def base_movement(self, coords, action):
+        
+        row, col = coords
+
+        if action == self.LEFT and self.MAP[row, col] != ">":
+            col -= 1
+        elif action == self.UP:
+            row -= 1
+        elif action == self.RIGHT and self.MAP[row, col] != "<":
+            col += 1
+        elif action == self.DOWN:
+            row += 1
+        elif action == self.RIGHT:
+            return (row, col)
+        else:
+            raise Exception('bad action {}'.format(action))
+        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied: # no move
+            return coords
+        else:
+            return (row, col)
+
+    def step(self, action):
+        # Movement
+        old_state = self.state
+        old_state_index = self.coords_to_state[old_state]
+        new_state_index = np.random.choice(a=self.s_dim, p=self.P[old_state_index, action])
+        new_state = self.state_to_coords[new_state_index]
+
+        self.state = new_state
+
+        # Determine features and rewards
+        phi = self.features(old_state, action, new_state)
+        reward = -1 #np.dot(phi, self.w)
+        done = self.is_done(old_state, action, new_state)
+        prop = self.MAP[new_state]
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition':prop}
+    
+    def reward(self, state):
+        return -1

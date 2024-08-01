@@ -2,9 +2,14 @@ from .fsa import FiniteStateAutomaton
 import numpy as np
 
 
-def load_fsa(name: str, env):    
-
-    if name == "Delivery-v0-task1":
+def load_fsa(name: str, env):
+    if name == "PickupDropoff-v0-task1":    
+        init_fun = fsa_pickup_dropoff1
+    elif name == "PickupDropoff-v0-task2":    
+        init_fun = fsa_pickup_dropoff2
+    elif name == "PickupDropoff-v0-task3":    
+        init_fun = fsa_pickup_dropoff3
+    elif name == "Delivery-v0-task1":
         init_fun = fsa_delivery1
     elif name == "Delivery-v0-task2":
         init_fun = fsa_delivery2
@@ -16,7 +21,7 @@ def load_fsa(name: str, env):
         init_fun = fsa_office2
     elif name == "Office-v0-task3":
         init_fun = fsa_office3
-    elif name == "double_slit_task1":
+    elif name == "DoubleSlit-v0-task1":
         init_fun = fsa_double_slit1
     else:
         raise NameError()
@@ -24,6 +29,176 @@ def load_fsa(name: str, env):
     g = init_fun(env)
     
     return g
+
+def fsa_pickup_dropoff1(env):
+    symbols_to_phi = {"H": 0, 
+                      "C": 1,
+                      "A": 2,
+                      "T": 3}
+    
+    fsa = FiniteStateAutomaton(symbols_to_phi)
+    
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+    fsa.add_state("u4")
+
+    fsa.add_transition("u0", "u1", ["A"])
+    fsa.add_transition("u1", "u2", ["H"])
+    fsa.add_transition("u2", "u3", ["T"])
+    fsa.add_transition("u3", "u4", ["C"])
+    
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[x], env.exit_states.values())) 
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # From u0 to u1 (via (A)irport)
+    T[0, 0, :] = 1
+    T[0, 0, exit_states_idxs[2]] = 0
+    T[0, 1, exit_states_idxs[2]] = 1
+    
+    # From u1 to u2 (via (H)otel)
+    T[1, 1, :] = 1
+    T[1, 1, exit_states_idxs[0]] = 0
+    T[1, 2, exit_states_idxs[0]] = 1
+    
+    # From u2 to u3 (via (T)rain station)
+    T[2, 2, :] = 1
+    T[2, 2, exit_states_idxs[3]] = 0
+    T[2, 3, exit_states_idxs[3]] = 1
+    
+    # From u3 to u4 (via (C)onvention center)
+    T[3, 3, :] = 1
+    T[3, 3, exit_states_idxs[1]] = 0
+    T[3, 4, exit_states_idxs[1]] = 1
+
+    T[4, 4, :] = 1
+
+    return fsa, T
+
+def fsa_pickup_dropoff2(env):
+    symbols_to_phi = {"H": 0, 
+                      "C": 1,
+                      "A": 2,
+                      "T": 3}
+    
+    fsa = FiniteStateAutomaton(symbols_to_phi)
+    
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+
+    fsa.add_transition("u0", "u1", ["A"])
+    fsa.add_transition("u0", "u2", ["T"])
+    fsa.add_transition("u1", "u3", ["H"])
+    fsa.add_transition("u2", "u3", ["H"])
+    
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[x], env.exit_states.values())) 
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # This is from u0 to u1 (via (A)irport or (T)rain station)
+    T[0, 0, :] = 1
+
+    # From u0 to u1 (A)irport 
+    T[0, 0, exit_states_idxs[2]] = 0
+    T[0, 1, exit_states_idxs[2]] = 1
+
+    # From u1 to u2 (T)rain station
+    T[0, 0, exit_states_idxs[3]] = 0
+    T[0, 1, exit_states_idxs[3]] = 1
+    
+    # From u1 to u3 via (H)otel
+    T[1, 1, :] = 1
+    T[1, 1, exit_states_idxs[0]] = 0
+    T[1, 3, exit_states_idxs[0]] = 1
+
+    # From u2 to u3 via (H)otel
+    T[2, 2, :] = 1
+    T[2, 2, exit_states_idxs[0]] = 0
+    T[2, 3, exit_states_idxs[0]] = 1
+    
+    T[3, 3, :] = 1
+
+    return fsa, T
+
+def fsa_pickup_dropoff3(env):
+    
+    symbols_to_phi = {"H": 0, 
+                      "C": 1,
+                      "A": 2,
+                      "T": 3}
+    
+    fsa = FiniteStateAutomaton(symbols_to_phi)
+    
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+    fsa.add_state("u4")
+    fsa.add_state("u5")
+    fsa.add_state("u6")
+
+    fsa.add_transition("u0", "u1", ["A"])
+    fsa.add_transition("u0", "u2", ["T"])
+    fsa.add_transition("u1", "u3", ["H"])
+    fsa.add_transition("u2", "u3", ["H"])
+    fsa.add_transition("u3", "u4", ["A"])
+    fsa.add_transition("u3", "u5", ["T"])
+    fsa.add_transition("u4", "u6", ["C"])
+    fsa.add_transition("u5", "u6", ["C"])
+
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[x], env.exit_states.values())) 
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # This is from u0 to u1 (via (A)irport or (T)rain station)
+    T[0, 0, :] = 1
+
+    # (A)irport 
+    T[0, 0, exit_states_idxs[2]] = 0
+    T[0, 1, exit_states_idxs[2]] = 1
+
+    # (T)rain station
+    T[0, 0, exit_states_idxs[3]] = 0
+    T[0, 1, exit_states_idxs[3]] = 1
+    
+    # From u1 to u3 via (H)otel
+    T[1, 1, :] = 1
+    T[1, 1, exit_states_idxs[0]] = 0
+    T[1, 3, exit_states_idxs[0]] = 1
+
+    # From u2 to u3 via (H)otel
+    T[2, 2, :] = 1
+    T[2, 2, exit_states_idxs[0]] = 0
+    T[2, 3, exit_states_idxs[0]] = 1
+    
+    # From u3 to u4 via (A)irport
+    T[3, 3, :] = 1
+    T[3, 4, exit_states_idxs[2]] = 0
+    T[3, 4, exit_states_idxs[2]] = 1
+
+    # From u3 to u5 via (T)rain station
+    T[3, 5, exit_states_idxs[3]] = 0
+    T[3, 5, exit_states_idxs[3]] = 1
+
+    # From u4 to u6 via (C)onvention center
+    T[4, 4, :] = 1
+    T[4, 4, exit_states_idxs[1]] = 0
+    T[4, 6, exit_states_idxs[1]] = 1
+    
+    # From u5 to u6 via (C)onvention center
+    T[5, 5, :] = 1
+    T[5, 6, exit_states_idxs[1]] = 0
+    T[5, 6, exit_states_idxs[1]] = 1
+
+    T[6, 6, :] = 1
+
+
+    return fsa, T
+
 
 def fsa_double_slit1(env):
 
@@ -295,10 +470,10 @@ def fsa_office2(env):
     fsa.add_state("u2")
     fsa.add_state("u3")
 
-    fsa.add_transition("u0", "u1", "C1 v C2")
-    fsa.add_transition("u0", "u2", "M1 v M2")
-    fsa.add_transition("u1", "u3", "O1 v O2")
-    fsa.add_transition("u2", "u3", "O1 v O2")
+    fsa.add_transition("u0", "u1", ["C1", "C2"])
+    fsa.add_transition("u0", "u2", ["M1", "M2"])
+    fsa.add_transition("u1", "u3", ["O1", "O2"])
+    fsa.add_transition("u2", "u3", ["O1", "O2"])
 
     exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
@@ -360,11 +535,11 @@ def fsa_office3(env):
     fsa.add_state("u3")
     fsa.add_state("u4")
 
-    fsa.add_transition("u0", "u1", "C1 v C2")
-    fsa.add_transition("u0", "u2", "M1 v M2")
-    fsa.add_transition("u1", "u3", "M1 v M2")
-    fsa.add_transition("u2", "u3", "C1 v C2")
-    fsa.add_transition("u3", "u4", "O1 v O2")
+    fsa.add_transition("u0", "u1", ["C1", "C2"])
+    fsa.add_transition("u0", "u2", ["M1", "M2"])
+    fsa.add_transition("u1", "u3", ["M1", "M2"])
+    fsa.add_transition("u2", "u3", ["C1", "C2"])
+    fsa.add_transition("u3", "u4", ["O1", "O2"])
 
     exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
 
