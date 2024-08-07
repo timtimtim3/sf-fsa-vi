@@ -105,8 +105,12 @@ def main(cfg: DictConfig) -> None:
 
         W, time = planning.traverse(W, num_iters = 1)
         times.append(time)
-        acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-        log_dict = {"evaluation/acc_reward": acc_reward,
+        rewards = []
+        for _ in range(gpi_agent.eval_episodes):
+            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
+            rewards.append(acc_reward)
+            
+        log_dict = {"evaluation/acc_reward": np.average(rewards),
                     "evaluation/iter": j,
                     "evaluation/time": np.sum(times)}
         

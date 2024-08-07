@@ -156,14 +156,12 @@ def fsa_pickup_dropoff3(env):
 
     # This is from u0 to u1 (via (A)irport or (T)rain station)
     T[0, 0, :] = 1
-
     # (A)irport 
     T[0, 0, exit_states_idxs[2]] = 0
     T[0, 1, exit_states_idxs[2]] = 1
-
     # (T)rain station
     T[0, 0, exit_states_idxs[3]] = 0
-    T[0, 1, exit_states_idxs[3]] = 1
+    T[0, 2, exit_states_idxs[3]] = 1
     
     # From u1 to u3 via (H)otel
     T[1, 1, :] = 1
@@ -177,11 +175,11 @@ def fsa_pickup_dropoff3(env):
     
     # From u3 to u4 via (A)irport
     T[3, 3, :] = 1
-    T[3, 4, exit_states_idxs[2]] = 0
+    T[3, 3, exit_states_idxs[2]] = 0
     T[3, 4, exit_states_idxs[2]] = 1
 
     # From u3 to u5 via (T)rain station
-    T[3, 5, exit_states_idxs[3]] = 0
+    T[3, 3, exit_states_idxs[3]] = 0
     T[3, 5, exit_states_idxs[3]] = 1
 
     # From u4 to u6 via (C)onvention center
@@ -191,7 +189,7 @@ def fsa_pickup_dropoff3(env):
     
     # From u5 to u6 via (C)onvention center
     T[5, 5, :] = 1
-    T[5, 6, exit_states_idxs[1]] = 0
+    T[5, 5, exit_states_idxs[1]] = 0
     T[5, 6, exit_states_idxs[1]] = 1
 
     T[6, 6, :] = 1
