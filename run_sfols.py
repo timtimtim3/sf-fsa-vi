@@ -20,7 +20,8 @@ import os
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
-    
+    os.environ["WANDB_SYMLINKS"] = "False"
+
     # Init Wandb
     run = wb.init(
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
@@ -52,7 +53,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
-                    planning_constraint=cfg.env.planning_constraint)
+                    planning_constraint=cfg.env.planning_constraint, eval_episodes=20)
 
     # m = number of predicates
     # Need to add the constraint, which sets add some restriction to the extrema weights.
@@ -83,9 +84,24 @@ def main(cfg: DictConfig) -> None:
         d.pop("replay_buffer")
         d.pop("env")
         d.pop("gpi")
-        with open(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl", "wb") as fp:
+
+        policy_path = f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl"
+        with open(policy_path, "wb") as fp:
             pkl.dump(d, fp)
-        wb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
+        # wb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
+
+        # Create an artifact
+        artifact = wb.Artifact(
+            name=f"policy_{train_env.unwrapped.spec.id}_{i + 1}",  # Unique artifact name
+            type="policy-data",  # Define the type (model, dataset, etc.)
+            description="Learned policy for the environment"
+        )
+
+        # Add the policy file to the artifact
+        artifact.add_file(policy_path)
+
+        # Log the artifact to the current run (uploading it to the cloud)
+        wb.run.log_artifact(artifact)
 
         run.summary["policies_obtained"] = len(gpi_agent.policies)
 
