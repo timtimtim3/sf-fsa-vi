@@ -18,6 +18,9 @@ import gym
 import os
 
 
+EVAL_EPISODES = 20
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     os.environ["WANDB_SYMLINKS"] = "False"
@@ -53,7 +56,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
-                    planning_constraint=cfg.env.planning_constraint, eval_episodes=20)
+                    planning_constraint=cfg.env.planning_constraint)
 
     # m = number of predicates
     # Need to add the constraint, which sets add some restriction to the extrema weights.
@@ -122,7 +125,7 @@ def main(cfg: DictConfig) -> None:
         W, time = planning.traverse(W, num_iters = 1)
         times.append(time)
         rewards = []
-        for _ in range(gpi_agent.eval_episodes):
+        for _ in range(EVAL_EPISODES):
             acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
             rewards.append(acc_reward)
             
