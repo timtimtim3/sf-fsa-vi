@@ -29,6 +29,21 @@ gym.envs.register(
     kwargs={'random_act_prob': 0.3}
 )
 
+gym.envs.register(
+    id="OfficeAreas-v0",
+    entry_point="envs.grid_envs:OfficeAreas",
+    kwargs={'add_obj_to_start': False},
+    max_episode_steps=200,
+)
+
+
+gym.envs.register(
+    id="OfficeAreasEval-v0",
+    entry_point="envs.grid_envs:OfficeAreas",
+    kwargs={'add_obj_to_start': False},
+    max_episode_steps=200,
+)
+
 # ANCHOR: Delivery environments
 
 gym.envs.register(

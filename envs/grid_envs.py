@@ -17,7 +17,7 @@ class GridEnv(ABC, gym.Env):
     @property
     def PHI_OBJ_TYPES(self):
         raise NotImplementedError
-    
+
     """
     A simplified version of the office environment introduced in [1].
     This simplified version consists of 2 coffee machines and 2 office locations.
@@ -213,6 +213,7 @@ class GridEnv(ABC, gym.Env):
             screen_width = square_size * max_y
             self.viewer = rendering.Viewer(screen_width, screen_height)
             self.viewer.square_map = {}
+
             for i in range(max_x):
                 for j in range(max_y):
                     l = j * square_size
@@ -223,27 +224,37 @@ class GridEnv(ABC, gym.Env):
                     self.viewer.add_geom(square)
                     self.viewer.square_map[(i, j)] = square
 
+        # Use the subclass's color map if available, otherwise fallback
+        color_map = getattr(self, 'COLOR_MAP', {})  # Default to empty dict
+
         for square_coords in self.viewer.square_map:
             square = self.viewer.square_map[square_coords]
 
-            # Agent
+            # Agent color (yellow)
             if square_coords == tuple(self.state):
                 color = [1, 1, 0]
 
-            # Exit state
+            # Check if the square contains an object
             elif square_coords in self.object_ids.keys():
-                color = [0, 0, 1]
+                obj_type = self.MAP[square_coords]
+                color = color_map.get(obj_type, [0, 0, 1])  # Default to blue if not mapped
+
+            # Walls
             elif square_coords in self.occupied:
                 color = [0, 0, 0]
+
+            # Empty space
             else:
                 color = [1, 1, 1]
+
             square.set_color(*color)
+
         self.custom_render(square_map=self.viewer.square_map)
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
     def custom_render(self, square_map: dict[tuple[int, int]]):
         pass
-    
+
 class Office(GridEnv):
 
     MAP = np.array([ [' ', ' ', 'C1',' ', ' ',  'X', ' ', 'C2', ' ',  ' ',  ' '],
@@ -257,15 +268,28 @@ class Office(GridEnv):
                      [' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
                      [' ', ' ', ' ', '_', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
                      ['O1', ' ',' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  'M1'],])
-    
+
     PHI_OBJ_TYPES = ['C1', 'C2', 'O1', 'O2', 'M1', 'M2']
-    
+
     """
     A simplified version of the office environment introduced in [1].
     This simplified version consists of 2 coffee machines and 2 office locations.
 
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
+
+    # Define a custom color map for Office
+    COLOR_MAP = {
+        "C1": [0.6, 0.3, 0],  # Brown (Coffee Machine 1)
+        "C2": [0.5, 0.25, 0],  # Dark Brown (Coffee Machine 2)
+        "O1": [1, 0.6, 0],  # Orange (Office Location 1)
+        "O2": [1, 0.4, 0],  # Dark Orange (Office Location 2)
+        "M1": [0.5, 0, 0.5],  # Purple (Meeting Room 1)
+        "M2": [0.3, 0, 0.3],  # Dark Purple (Meeting Room 2)
+        "X": [0, 0, 0],  # Black (Walls)
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    }
 
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
@@ -282,6 +306,63 @@ class Office(GridEnv):
 
     def _create_transition_function(self):
         self._create_transition_function_base()
+
+
+
+class OfficeAreas(GridEnv):
+
+    MAP = np.array([ [' ', ' ', ' ', 'B', 'B', 'X', 'C',  ' ', ' ', ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  'B', 'B',  'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ', 'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', 'A', 'A', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', '_', ' ', 'X', ' ',  ' ', ' ',  'B', 'B',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', 'B',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', 'B',  'B',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
+                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],])
+
+    PHI_OBJ_TYPES = ['A', 'B', 'C']
+
+    """
+    A simplified version of the office environment introduced in [1].
+    This simplified version consists of 2 coffee machines and 2 office locations.
+
+    [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
+    """
+
+    # Define a custom color map for Office
+    COLOR_MAP = {
+        "A": [0.6, 0.3, 0],  # Brown
+        "B": [1, 0.6, 0],  # Orange
+        "C": [0.5, 0, 0.5],  # Purple
+        "X": [0, 0, 0],  # Black (Walls)
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    }
+
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
+        self._create_coord_mapping()
+        self._create_transition_function()
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
+
+        self.exit_states = exit_states
+
+
+    def _create_transition_function(self):
+        self._create_transition_function_base()
+
 
 
 
