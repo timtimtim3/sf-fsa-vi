@@ -355,7 +355,12 @@ class OfficeAreas(GridEnv):
         exit_states = {}
         for s in self.object_ids:
             symbol = self.MAP[s]
-            exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
+            key = self.PHI_OBJ_TYPES.index(symbol)
+
+            if key not in exit_states:
+                exit_states[key] = {s}  # Initialize with a set containing s
+            else:
+                exit_states[key].add(s)  # Add new coordinate to the existing set
 
         self.exit_states = exit_states
 

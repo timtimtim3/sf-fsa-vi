@@ -69,6 +69,7 @@ def main(cfg: DictConfig) -> None:
     os.makedirs(f"results/sfols/policies/{directory}", exist_ok=True)
 
     for ols_iter in range(cfg.max_iter_ols):
+        print(f"ols_iter: {ols_iter}")
         
         if ols.ended():
             print("ended at iteration", ols_iter)
