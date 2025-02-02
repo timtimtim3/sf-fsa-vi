@@ -73,17 +73,7 @@ def main(cfg: DictConfig) -> None:
         }
 
     # Evaluate singular policies on the tasks they were trained on
-    gpi_agent.evaluate_single_policy(0, train_env, render=True, verbose=True)
-    gpi_agent.evaluate_single_policy(1, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(2, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(3, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(4, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(5, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(6, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(7, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(8, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(9, train_env, render=True, verbose=True, initial_sleep=1)
-    gpi_agent.evaluate_single_policy(10, train_env, render=True, verbose=True, initial_sleep=1)
+    gpi_agent.evaluate_all_single_policies(train_env, render=True, verbose=True, get_stuck_max=10)
 
     # # -----------------------------------------------------------------------------
     # # 3) LET THE AGENT PLAY IN THE ENV WITH RENDER
