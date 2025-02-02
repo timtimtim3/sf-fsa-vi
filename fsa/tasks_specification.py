@@ -625,13 +625,13 @@ def fsa_officeAreas1(env):
 
     # Transition from u1 to u1 in all cases
     T[1, 1, :] = 1
-    for exit_state_idx in exit_states_idxs[0]:
+    for exit_state_idx in exit_states_idxs[1]:
         T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
         T[1, 2, exit_state_idx] = 1  # Then we transition to u2
 
     # Transition from u2 to u2 in all cases
     T[2, 2, :] = 1
-    for exit_state_idx in exit_states_idxs[0]:
+    for exit_state_idx in exit_states_idxs[2]:
         T[2, 2, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
         T[2, 3, exit_state_idx] = 1  # Then we transition to u3
 
