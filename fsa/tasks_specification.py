@@ -421,10 +421,7 @@ def fsa_office1(env):
     fsa.add_transition("u1", "u2", ["M1", "M2"])
     fsa.add_transition("u2", "u3", ["O1", "O2"])
 
-
     exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states))))
-    print("exit_states_idxs:")
-    print(exit_states_idxs)
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 

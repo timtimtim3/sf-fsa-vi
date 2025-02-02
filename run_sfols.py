@@ -33,8 +33,8 @@ def main(cfg: DictConfig) -> None:
         # mode = "disabled"
 
     )
-    run.tags = run.tags 
-    
+    run.tags = run.tags
+
     # Set seeds
     seed_everything(cfg.seed)
 
@@ -110,12 +110,15 @@ def main(cfg: DictConfig) -> None:
 
         run.summary["policies_obtained"] = len(gpi_agent.policies)
 
+    tasks = gpi_agent.tasks
+    tasks_path = f"results/sfols/policies/{train_env.unwrapped.spec.id}/tasks.pkl"
+    with open(tasks_path, "wb") as fp:
+        pkl.dump(tasks, fp)
 
-    # Once the low-level policies have been obtained we can retrain the high-level 
+    # Once the low-level policies have been obtained we can retrain the high-level
     # policy and keep track of the results.
 
     wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
-
 
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
     W = None
@@ -137,6 +140,7 @@ def main(cfg: DictConfig) -> None:
         
         wb.log(log_dict)
 
+    acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
 
     wb.finish()
 
