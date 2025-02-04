@@ -42,7 +42,9 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
     add_obj_to_start = env_params.get("add_obj_to_start")
-    train_env = gym.make(env_name, add_obj_to_start=True if add_obj_to_start is None else add_obj_to_start)
+    add_empty_to_start = env_params.get("add_empty_to_start")
+    train_env = gym.make(env_name, add_obj_to_start=True if add_obj_to_start is None else add_obj_to_start,
+                         add_empty_to_start=False if add_empty_to_start is None else add_empty_to_start)
     eval_env = gym.make(env_name)
 
     # Create the FSA env wrapper, to evaluate the FSA

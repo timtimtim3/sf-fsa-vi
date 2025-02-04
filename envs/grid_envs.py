@@ -27,7 +27,7 @@ class GridEnv(ABC, gym.Env):
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
 
-    def __init__(self, add_obj_to_start, random_act_prob):
+    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False):
         """
         Creates a new instance of the coffee environment.
 
@@ -53,6 +53,8 @@ class GridEnv(ABC, gym.Env):
                     self.object_ids[(r, c)] = len(self.object_ids)
                     if add_obj_to_start and self.MAP[r, c] != "O":
                         self.initial.append((r, c))
+                elif self.MAP[r, c] == ' ' and add_empty_to_start:
+                    self.initial.append((r, c))
 
         self.w = np.zeros(self.feat_dim)
         self.action_space = Discrete(4)
@@ -291,8 +293,9 @@ class Office(GridEnv):
         "_": [1, 1, 1],  # White (Starting Area)
     }
 
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
-        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False):
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
+                         add_empty_to_start=add_empty_to_start)
         self._create_coord_mapping()
         self._create_transition_function()
 
@@ -347,8 +350,9 @@ class OfficeAreas(GridEnv):
         "_": [1, 1, 1],  # White (Starting Area)
     }
 
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0):
-        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob)
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False):
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
+                         add_empty_to_start=add_empty_to_start)
         self._create_coord_mapping()
         self._create_transition_function()
 
