@@ -1,0 +1,5 @@
+env_name: "OfficeAreasRBF-v0"
+planning_constraint: null
+restriction: null
+add_obj_to_start: True
+add_empty_to_start: True
