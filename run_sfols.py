@@ -85,7 +85,6 @@ def main(cfg: DictConfig) -> None:
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
-
     for i, pi in enumerate(gpi_agent.policies):
         d = vars(pi)
         d.pop("replay_buffer")

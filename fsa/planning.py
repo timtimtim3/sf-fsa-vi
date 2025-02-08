@@ -66,15 +66,30 @@ class SFFSAValueIteration:
                     else:
                         for idx in idxs:
                             e = exit_states[idx]  # TODO: This is now a set in my officeAreas case
-                            # print(e)
-                            w[idx] = np.dot(self.gpi.max_q(e, W[vidx]), W[vidx]) # Assign to each goal/predicate in w
-                            # the maximum Q-value we can get in its corresponding exit state (over policies and actions)
+
+                            if isinstance(e, set):
+                                q_vals = []
+                                for exit_state in e:
+                                    q_val_e = np.dot(self.gpi.max_q(exit_state, W[vidx]), W[vidx])
+                                    q_vals.append(q_val_e)
+                                w[idx] = np.mean(q_vals)  # Take the mean as a temporary solution
+                            else:
+                                w[idx] = np.dot(self.gpi.max_q(e, W[vidx]), W[vidx])  # Assign to each goal/predicate in w
+                                # the maximum Q-value we can get in its corresponding exit state (over policies and actions)
+                                # 'Given the current task vector w in fsa state v, what is the max Q-value?'
+
+                            # TODO: For sets of exit state, also max over exit states?
 
                     weights.append(w)
                 
                 weights = np.asarray(weights)
                 weights = np.sum(weights, axis=0)  # Sum the rows, so we get w of size phi_dim where each element
                 # is the sum over all transitions from u to v1, v2, v3 etc.
+                # TODO: Does this make sense? since if we have two transitions for a single goal/proposition we will sum
+                # TODO: the Q-values and then have a higher weight than for goals that only have one transition
+                # TODO: while we cannot simultaniously take both transitions so MAX might make more sense?
+                # TODO: at the same time if deterministic then when we satisfy one proposition we will enter both
+                # TODO: transitions which is not possible so this would only be the case in stoch setting?
                 
                 if self.constraint:
                     for c in self.constraint:
