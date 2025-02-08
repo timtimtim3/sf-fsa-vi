@@ -3,11 +3,12 @@ import random
 import gym
 from gym.spaces import Discrete, Box
 from abc import ABC, abstractmethod
+from envs.utils import gaussian_rbf
 
 
 class GridEnv(ABC, gym.Env):
     metadata = {'render.modes': ['human'],
-        'video.frames_per_second': 20}
+                'video.frames_per_second': 20}
     LEFT, UP, RIGHT, DOWN = 0, 1, 2, 3
 
     @property
@@ -92,9 +93,9 @@ class GridEnv(ABC, gym.Env):
                 # Fill out transition matrix accounting for randomness
                 for a in range(self.a_dim):
                     if action == a:
-                        self.P[start_state, a, next_state] += 1-self.random_act_prob
+                        self.P[start_state, a, next_state] += 1 - self.random_act_prob
                     else:
-                        self.P[start_state, a, next_state] += self.random_act_prob / (self.a_dim-1)
+                        self.P[start_state, a, next_state] += self.random_act_prob / (self.a_dim - 1)
         # sanity check
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
@@ -114,18 +115,18 @@ class GridEnv(ABC, gym.Env):
         else:
             self.state = random.choice(self.initial)
         return self.state_to_array(self.state)
-    
+
     def random_reset(self):
         # TODO: ?
         # states = [state for state in self.coords_to_state if state not in self.exit_states and self.MAP[state] != "O"]
         states = [state for state in self.coords_to_state if not state in self.exit_states]
         random_idx = np.random.randint(0, len(states))
-        self.state = states[random_idx] 
+        self.state = states[random_idx]
 
         return self.state_to_array(self.state)
 
     def base_movement(self, coords, action):
-        
+
         row, col = coords
 
         if action == self.LEFT:
@@ -138,7 +139,7 @@ class GridEnv(ABC, gym.Env):
             row += 1
         else:
             raise Exception('bad action {}'.format(action))
-        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied: # no move
+        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied:  # no move
             return coords
         else:
             return (row, col)
@@ -154,15 +155,15 @@ class GridEnv(ABC, gym.Env):
 
         # Determine features and rewards
         phi = self.features(old_state, action, new_state)
-        reward = -1 #np.dot(phi, self.w)
+        reward = -1  #np.dot(phi, self.w)
         done = self.is_done(old_state, action, new_state)
         prop = self.MAP[new_state]
-        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition':prop}
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
 
     # =========================================================================== #
     # STATE ENCODING FOR DEEP LEARNING                                            #
     # =========================================================================== #
-    
+
     def encode(self, state):
         # (y, x), coll = state
         # n_state = self.width + self.height
@@ -181,7 +182,7 @@ class GridEnv(ABC, gym.Env):
     # SUCCESSOR FEATURES
     # ===========================================================================
     def is_done(self, state, action, next_state):
-        return next_state in self.object_ids 
+        return next_state in self.object_ids
 
     def features(self, state, action, next_state):
         s1 = next_state
@@ -257,19 +258,19 @@ class GridEnv(ABC, gym.Env):
     def custom_render(self, square_map: dict[tuple[int, int]]):
         pass
 
-class Office(GridEnv):
 
-    MAP = np.array([ [' ', ' ', 'C1',' ', ' ',  'X', ' ', 'C2', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     ['M2',' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', 'O2', ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', 'X', 'X', ' ', ' ',  'X', ' ',  ' ', 'X',  'X',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  'X', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', '_', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     ['O1', ' ',' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  'M1'],])
+class Office(GridEnv):
+    MAP = np.array([[' ', ' ', 'C1', ' ', ' ', 'X', ' ', 'C2', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+                    ['M2', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', 'O2', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+                    [' ', 'X', 'X', ' ', ' ', 'X', ' ', ' ', 'X', 'X', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    ['O1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'M1'], ])
 
     PHI_OBJ_TYPES = ['C1', 'C2', 'O1', 'O2', 'M1', 'M2']
 
@@ -306,39 +307,29 @@ class Office(GridEnv):
 
         self.exit_states = exit_states
 
-
     def _create_transition_function(self):
         self._create_transition_function_base()
 
 
-
 class OfficeAreas(GridEnv):
-
-    MAP = np.array([ [' ', ' ', ' ', 'B', 'B', 'X', 'C',  ' ', ' ', ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  'B', 'B',  'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ', 'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', 'A', 'A', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  'B', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', '_', ' ', 'X', ' ',  ' ', ' ',  'B', 'B',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', 'B',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', 'B',  'B',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', 'X', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  'B',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],
-                     [' ', ' ', ' ', ' ', ' ', ' ', ' ',  ' ', ' ',  ' ', ' ',  ' ',  ' '],])
+    MAP = np.array([[' ', ' ', ' ', 'B', 'B', 'X', 'C', ' ', ' ', ' ', ' ', ' ', '_'],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', 'A', 'A', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
 
     PHI_OBJ_TYPES = ['A', 'B', 'C']
-
-    """
-    A simplified version of the office environment introduced in [1].
-    This simplified version consists of 2 coffee machines and 2 office locations.
-
-    [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
-    """
 
     # Define a custom color map for Office
     COLOR_MAP = {
@@ -368,33 +359,140 @@ class OfficeAreas(GridEnv):
 
         self.exit_states = exit_states
 
-
     def _create_transition_function(self):
         self._create_transition_function_base()
 
 
+class OfficeAreasRBF(GridEnv):
+    MAP = np.array([[' ', ' ', ' ', 'B', 'B', 'X', 'C', ' ', ' ', ' ', ' ', ' ', '_'],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', 'A', 'A', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
+    RBF_MAP = np.array([[' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF', ' ', ' ', ' ', ' ', ' ', '_'],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B_RBF', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', 'A', 'A_RBF', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B_RBF', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
+
+    PHI_OBJ_TYPES = ['A', 'B', 'C']
+    RBF_STR_NAMES = [f"{phi}_RBF" for phi in PHI_OBJ_TYPES]
+    COORDS_RBFS = {'A': [(5, 4)], 'B': [(0, 3), (2, 8), (11, 11)], 'C': [(0, 6)]}
+
+    # Define a custom color map for Office
+    COLOR_MAP = {
+        "A": [0.6, 0.3, 0],  # Brown
+        "B": [1, 0.6, 0],  # Orange
+        "C": [0.5, 0, 0.5],  # Purple
+        "X": [0, 0, 0],  # Black (Walls)
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    }
+
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, d=1):
+        self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
+        self.n_rbfs = sum(self.rbf_lengths.values())
+        for phi_symbol, coords_list in self.COORDS_RBFS.items():
+            for row, col in coords_list:
+                assert self.MAP[row][col] == phi_symbol, (
+                    f"Incorrect RBF placed at {(row, col)}: expected {phi_symbol} "
+                    f"in MAP, got {self.MAP[row][col]}")
+
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
+                         add_empty_to_start=add_empty_to_start)
+        self._create_coord_mapping()
+        self._create_transition_function()
+        self.d = d
+
+        # Reserve initial indices for objects
+        start_index = len(self.PHI_OBJ_TYPES)
+
+        # Reserve indices in our feature-weight vector for each rbf feature
+        self.rbf_indices = {}
+        current_index = start_index
+        for key in sorted(self.COORDS_RBFS.keys()):  # Sort A -> B -> C
+            for center_coords in self.COORDS_RBFS[key]:
+                self.rbf_indices[center_coords] = current_index
+                current_index += 1
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            key = self.PHI_OBJ_TYPES.index(symbol)
+
+            if key not in exit_states:
+                exit_states[key] = {s}  # Initialize with a set containing s
+            else:
+                exit_states[key].add(s)  # Add new coordinate to the existing set
+
+        self.exit_states = exit_states
+
+    def _create_transition_function(self):
+        self._create_transition_function_base()
+
+    @property
+    def feat_dim(self):
+        """Override the feat_dim property to account for rbfs as features."""
+        return len(self.all_objects) + self.n_rbfs
+
+    def features(self, state, action, next_state):
+        phi = np.zeros(self.feat_dim, dtype=np.float32)
+        if next_state in self.object_ids:
+            y, x = next_state
+            symbol = self.MAP[y, x]
+            object_index = self.all_objects[symbol]
+            phi[object_index] = 1.
+
+            for center_coords in self.COORDS_RBFS[symbol]:
+                cy, cx = center_coords
+                rbf_val = gaussian_rbf(x, y, cx, cy, self.d)
+                rbf_index = self.rbf_indices[center_coords]
+
+                phi[rbf_index] = rbf_val
+        return phi
 
 
 class Delivery(GridEnv):
-    
-    MAP = np.array([['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', 'C', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    [' ', 'A', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' ', ' ', ' ' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],
-                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', 'H', 'O', 'O', 'O', ' ', 'O', 'O', 'O' ],])
-    
+    MAP = np.array([['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', 'C', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    [' ', 'A', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
+                    ['O', 'O', 'O', ' ', 'O', 'O', 'O', 'H', 'O', 'O', 'O', ' ', 'O', 'O', 'O'], ])
+
     PHI_OBJ_TYPES = ['A', 'B', 'C', 'H', 'O']
-    
+
     """
     A simplified version of the office environment introduced in [1].
     This simplified version consists of 2 coffee machines and 2 office locations.
@@ -413,7 +511,7 @@ class Delivery(GridEnv):
             if symbol in ("O"):
                 continue
             exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
-        
+
         if not add_obj_to_start:
             home_state = self.PHI_OBJ_TYPES.index('H')
             self.initial.append(exit_states[home_state])
@@ -431,21 +529,20 @@ class Delivery(GridEnv):
             y, x = s1
             object_index = self.all_objects[self.MAP[y, x]]
             phi[object_index] = 1. if self.MAP[s1] != "O" else -1
-        
+
         return phi
 
-    
     def custom_render(self, square_map: dict[tuple[int, int]]):
         for square_coords in square_map:
             square = square_map[square_coords]
             # Teleport
-            if self.MAP[square_coords] == 'O' :
+            if self.MAP[square_coords] == 'O':
                 color = [0, 0, 0]
-            elif self.MAP[square_coords] == 'A' :
+            elif self.MAP[square_coords] == 'A':
                 color = [1, 0, 0]
-            elif self.MAP[square_coords] == 'B' :
+            elif self.MAP[square_coords] == 'B':
                 color = [0, 1, 0]
-            elif self.MAP[square_coords] == 'H' :
+            elif self.MAP[square_coords] == 'H':
                 color = [0.7, 0.3, 0.7]
             else:
                 continue
@@ -466,43 +563,65 @@ class Delivery(GridEnv):
         reward = self.reward(old_state)
         done = self.MAP[new_state] in self.PHI_OBJ_TYPES and self.MAP[new_state] != 'O'
         prop = self.MAP[new_state]
-        
-        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition' : prop}
+
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
 
     def reward(self, state):
 
-        reward = -1 
+        reward = -1
 
         y, x = state
 
         if self.MAP[y][x] == 'O':
-            reward = -1000 
+            reward = -1000
 
         return reward
 
+
 class DoubleSlit(GridEnv):
     MAP = np.array([
-        ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'O1', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
-        ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'O2', 'X']
+        ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+         'X', 'X', 'X', 'X', 'X', 'X', 'O1', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'X'],
+        ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+         'X', 'X', 'X', 'X', 'X', 'X', 'O2', 'X']
 
     ])
 
@@ -519,14 +638,13 @@ class DoubleSlit(GridEnv):
         self._max_wind = max_wind
         self._create_coord_mapping()
         self._create_transition_function()
-        
+
         exit_states = {}
         for s in self.object_ids:
             symbol = self.MAP[s]
             exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
 
         self.exit_states = exit_states
-
 
     def coords_act_transition_distr(self, coords, action):
         row, col = coords
@@ -554,7 +672,7 @@ class DoubleSlit(GridEnv):
                     new_col = min(self.width - 1, new_col + direction)
                     new_col = max(0, new_col)
 
-            entry = ((new_row, new_col), 1.0/(self._max_wind * 2 + 1))
+            entry = ((new_row, new_col), 1.0 / (self._max_wind * 2 + 1))
             distr.append(entry)
         return distr
 
@@ -574,8 +692,8 @@ class DoubleSlit(GridEnv):
         # sanity check
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
-class PickupDropoff(GridEnv):
 
+class PickupDropoff(GridEnv):
     # MAP = np.array([ [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  ' '],
     #                  [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  'A'],
     #                  [' ', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',  ' ',  ' '],
@@ -592,21 +710,20 @@ class PickupDropoff(GridEnv):
     #                  [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  'T'],
     #                  [' ', '<', '<', '<', '<', '<', '<', '<', '<', '<', '<',  ' ',  ' '],])
 
+    MAP = np.array([[' ', '<', '<', '<', '<', ' '],
+                    [' ', '<', '<', '<', '<', 'A'],
+                    [' ', 'X', 'X', 'X', 'X', ' '],
+                    [' ', '>', '>', '>', '>', ' '],
+                    ['H', '>', '>', '>', '>', ' '],
+                    [' ', '>', '>', '>', '>', ' '],
+                    ['C', '>', '>', '>', '>', ' '],
+                    [' ', '>', '>', '>', '>', ' '],
+                    [' ', 'X', 'X', 'X', 'X', ' '],
+                    [' ', '<', '<', '<', '<', 'T'],
+                    [' ', '<', '<', '<', '<', ' '], ])
 
-    MAP = np.array([ [' ', '<', '<', '<', '<', ' '],
-                     [' ', '<', '<', '<', '<', 'A'],
-                     [' ', 'X', 'X', 'X', 'X', ' '],
-                     [' ', '>', '>', '>', '>', ' '],
-                     ['H', '>', '>', '>', '>', ' '],
-                     [' ', '>', '>', '>', '>', ' '],
-                     ['C', '>', '>', '>', '>', ' '],
-                     [' ', '>', '>', '>', '>', ' '],
-                     [' ', 'X', 'X', 'X', 'X', ' '],
-                     [' ', '<', '<', '<', '<', 'T'],
-                     [' ', '<', '<', '<', '<', ' '],])
-    
     PHI_OBJ_TYPES = ['H', 'C', 'A', 'T']
-    
+
     """
     New environment.
 
@@ -622,12 +739,11 @@ class PickupDropoff(GridEnv):
         for s in self.object_ids:
             symbol = self.MAP[s]
             self.exit_states[self.PHI_OBJ_TYPES.index(symbol)] = s
-            
+
         if not add_obj_to_start:
             self.initial = [s for s in self.exit_states.values() if self.MAP[s] in ["H", "C"]]
 
-
-    # 
+    #
     def coords_act_transition_distr(self, coords, action):
         row, col = coords
         distr = []
@@ -635,7 +751,7 @@ class PickupDropoff(GridEnv):
         if self.MAP[(row, col)] == ">":
 
             for wind in range(-self._max_wind, self._max_wind + 1, 1):
-                
+
                 new_row = row
                 new_col = col
 
@@ -658,13 +774,14 @@ class PickupDropoff(GridEnv):
                         new_col = min(self.width - 1, new_col + direction)
                         new_col = max(0, new_col)
 
-                entry = ((new_row, new_col), 1.0/(self._max_wind * 2 + 1))
+                entry = ((new_row, new_col), 1.0 / (self._max_wind * 2 + 1))
                 distr.append(entry)
 
         else:
-            next_states = [self.base_movement(coords, a)  for a in range(self.a_dim)]
-            probs = [1-self.random_act_prob if a == action else self.random_act_prob / (self.a_dim-1) for a in range(self.a_dim)]
-            
+            next_states = [self.base_movement(coords, a) for a in range(self.a_dim)]
+            probs = [1 - self.random_act_prob if a == action else self.random_act_prob / (self.a_dim - 1) for a in
+                     range(self.a_dim)]
+
             distr = list(zip(next_states, probs))
 
         return distr
@@ -676,8 +793,8 @@ class PickupDropoff(GridEnv):
             for eff_a in range(self.a_dim):
                 start_coords = self.state_to_coords[start_s]
                 # if start_coords in self.object_ids:
-                    # self.P[start_s, eff_a, start_s] += 1  # Set transitions in goal states to 1 to pass the sanity check
-                    # continue
+                # self.P[start_s, eff_a, start_s] += 1  # Set transitions in goal states to 1 to pass the sanity check
+                # continue
                 distr = self.coords_act_transition_distr(coords=start_coords, action=eff_a)
                 for end_coords, prob in distr:
                     new_s = self.coords_to_state[end_coords]
@@ -686,7 +803,7 @@ class PickupDropoff(GridEnv):
         assert np.allclose(np.sum(self.P, axis=2), 1)
 
     def base_movement(self, coords, action):
-        
+
         row, col = coords
 
         if action == self.LEFT and self.MAP[row, col] != ">":
@@ -701,7 +818,7 @@ class PickupDropoff(GridEnv):
             return (row, col)
         else:
             raise Exception('bad action {}'.format(action))
-        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied: # no move
+        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied:  # no move
             return coords
         else:
             return (row, col)
@@ -717,10 +834,10 @@ class PickupDropoff(GridEnv):
 
         # Determine features and rewards
         phi = self.features(old_state, action, new_state)
-        reward = -1 #np.dot(phi, self.w)
+        reward = -1  #np.dot(phi, self.w)
         done = self.is_done(old_state, action, new_state)
         prop = self.MAP[new_state]
-        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition':prop}
-    
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
+
     def reward(self, state):
         return -1

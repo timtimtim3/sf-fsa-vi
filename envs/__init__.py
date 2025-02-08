@@ -32,7 +32,6 @@ gym.envs.register(
 gym.envs.register(
     id="OfficeAreas-v0",
     entry_point="envs.grid_envs:OfficeAreas",
-    kwargs={'add_obj_to_start': False},
     max_episode_steps=200,
 )
 
@@ -40,7 +39,20 @@ gym.envs.register(
 gym.envs.register(
     id="OfficeAreasEval-v0",
     entry_point="envs.grid_envs:OfficeAreas",
-    kwargs={'add_obj_to_start': False},
+    kwargs={'add_obj_to_start': False, 'add_empty_to_start': False},
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasRBF-v0",
+    entry_point="envs.grid_envs:OfficeAreasRBF",
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasRBFEval-v0",
+    entry_point="envs.grid_envs:OfficeAreasRBF",
+    kwargs={'add_obj_to_start': False, 'add_empty_to_start': False},
     max_episode_steps=200,
 )
 
