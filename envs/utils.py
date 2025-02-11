@@ -1,39 +1,25 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 
-def visualize_rbfs(env):
-    """
-    Visualizes the RBF activations over the grid for each RBF center.
-
-    Args:
-        env: An instance of `OfficeAreasRBF` environment.
-        d: Scaling factor for the RBF (controls spread).
-    """
+def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
     grid_height, grid_width = env.MAP.shape
+    rbf_data = {'A': {(0, 0): {(0, 0): 1, (1, 1): 0.5}, (1, 1): {}}}
 
-    for symbol in sorted(env.COORDS_RBFS.keys()):  # Sort A -> B -> C
+    for symbol in sorted(env.COORDS_RBFS.keys()):  # Sort A → B → C
+        rbf_data[symbol] = {}
         for center_coords in env.COORDS_RBFS[symbol]:
             cy, cx = center_coords  # RBF center
-            activation_grid = np.zeros((grid_height, grid_width))
+            rbf_data[symbol][center_coords] = {}
 
             # Compute RBF activation for each cell in the grid
             for y in range(grid_height):
                 for x in range(grid_width):
-                    activation_grid[y, x] = gaussian_rbf(x, y, cx, cy, env.d)
-
-            # Plot heatmap
-            plt.figure(figsize=(6, 6))
-            plt.imshow(activation_grid, cmap="hot", origin="upper", extent=[0, grid_width, 0, grid_height])
-            plt.colorbar(label="RBF Activation")
-            plt.scatter(cx + 0.5, grid_height - cy - 0.5, color="cyan", s=100,
-                        label="RBF Center")  # Mark center
-            plt.title(f"RBF Activation for {symbol} at ({cx}, {cy})")
-            plt.xlabel("X Coordinate")
-            plt.ylabel("Y Coordinate")
-            plt.legend()
-            plt.grid(False)  # Remove grid lines for better clarity
-            plt.show()
+                    if exclude and env.MAP[y, x] in exclude:
+                        continue
+                    activation_value = gaussian_rbf(x, y, cx, cy, env.d)
+                    if activation_value > include_threshold:
+                        rbf_data[symbol][center_coords][(y, x)] = activation_value
+    return rbf_data, (grid_height, grid_width)
 
 
 def gaussian_rbf(x, y, cx, cy, d=1):
@@ -49,12 +35,14 @@ def compute_q_table(sf_table, w):
         q_table[coords] = q_vals
     return q_table
 
+
 def convert_map_to_grid(env, custom_mapping=None):
     """
     Converts the environment's MAP (string-based) into a numeric grid for visualization.
 
     Args:
         env: The `GridEnv` subclass instance (e.g., `OfficeAreas`).
+        custom_mapping: Custom color map.
 
     Returns:
         np.array: A 2D grid where each cell is assigned a numeric value.

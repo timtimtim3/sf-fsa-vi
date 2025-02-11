@@ -60,7 +60,7 @@ class SFFSAValueIteration:
                     # propositions
 
                     if self.fsa.is_terminal(v):
-                        # If the transition is terminal we get a reward/w of 1 for each proposition that enables this
+                        # If the transition is terminal we get a w of 1 for each proposition that enables this
                         # transition
                         w[idxs] = 1
                     else:

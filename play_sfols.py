@@ -9,9 +9,9 @@ import hydra
 import envs
 import gym
 import wandb
-from sfols.plotting.plotting import get_plot_arrow_params, create_grid_plot, plot_policy, add_legend
 import matplotlib.pyplot as plt
-from envs.utils import visualize_rbfs, convert_map_to_grid
+from envs.utils import get_rbf_activation_data
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
 
 EVAL_EPISODES = 20
 
@@ -49,61 +49,50 @@ def main(cfg: DictConfig) -> None:
     gpi_agent.load_policies_and_tasks(policy_dir)
 
     if "RBF" in env_name:
-        visualize_rbfs(train_env)
+        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
+        plot_all_rbfs(rbf_data, grid_size)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        arrow_data = get_plot_arrow_params(policy.q_table, w, train_env)  # a tuple (x_pos, y_pos, x_dir, y_dir, color)
+        plot_q_vals(i, policy, w, train_env, rbf_data)
 
-        fig, ax = plt.subplots()
-
-        grid, mapping = convert_map_to_grid(train_env)
-
-        create_grid_plot(ax, grid)  # draw the grid
-        add_legend(ax, mapping)  # Add legend
-
-        # Format weight vector as a string for the title
-        weight_str = np.array2string(w, precision=3, separator=", ")
-        ax.set_title(f"Policy {i + 1} | Weights: {weight_str}")
-
-        # plot the arrows that indicate the policy's best actions
-        quiv = plot_policy(ax, arrow_data, grid, title_suffix=" Policy", values=False)
-
-        plt.show()
+    # plot_q_vals(9, gpi_agent.policies[9], gpi_agent.tasks[9], train_env, rbf_data)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
     # -----------------------------------------------------------------------------
-    gpi_agent.evaluate_all_single_policies(train_env, render=True, verbose=True, get_stuck_max=10)
+    # gpi_agent.evaluate_all_single_policies(train_env, render=True, verbose=True, get_stuck_max=10)
+    # gpi_agent.evaluate_single_policy(env=train_env, policy_index=9, render=True, verbose=True, get_stuck_max=10)
+    # [0.21, 0.07, 0.01, 0.03, 0.21, 0.13, 0.13, 0.21]
 
     # -----------------------------------------------------------------------------
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
-    print("Performing value iteration")
-    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
-    W = None
-    times = []
-
-    for j in range(50):
-        W, time = planning.traverse(W, num_iters=1)
-        times.append(time)
-
-        rewards = []
-        for _ in range(EVAL_EPISODES):
-            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-            rewards.append(acc_reward)
-
-        avg_reward = np.mean(rewards)
-        log_dict = {
-            "evaluation/acc_reward": avg_reward,
-            "evaluation/iter": j,
-            "evaluation/time": np.sum(times)
-        }
-
-    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    print(f"Final reward (rendered): {final_reward}")
+    # print("Performing value iteration")
+    # planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
+    # W = None
+    # times = []
+    #
+    # for j in range(50):
+    #     W, time = planning.traverse(W, num_iters=1)
+    #     times.append(time)
+    #
+    #     rewards = []
+    #     for _ in range(EVAL_EPISODES):
+    #         acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
+    #         rewards.append(acc_reward)
+    #
+    #     avg_reward = np.mean(rewards)
+    #     log_dict = {
+    #         "evaluation/acc_reward": avg_reward,
+    #         "evaluation/iter": j,
+    #         "evaluation/time": np.sum(times)
+    #     }
+    #
+    # final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    # print(f"Final reward (rendered): {final_reward}")
 
     train_env.close()
     eval_env.close()  # Close the environment when done
