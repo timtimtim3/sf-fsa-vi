@@ -42,15 +42,22 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
     add_obj_to_start = env_params.get("add_obj_to_start")
-    add_empty_to_start = env_params.get("add_empty_to_start")
+
+    # Default to env defaults if not specified
+    kwargs = {
+        k: v for k, v in {
+            "add_empty_to_start": env_params.get("add_empty_to_start"),
+            "only_rbf": env_params.get("only_rbf")
+        }.items() if v is not None
+    }
+
     train_env = gym.make(env_name, add_obj_to_start=True if add_obj_to_start is None else add_obj_to_start,
-                         add_empty_to_start=False if add_empty_to_start is None else add_empty_to_start)
+                         **kwargs)
     eval_env = gym.make(env_name)
 
     # Create the FSA env wrapper, to evaluate the FSA
     fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env) # Load FSA
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
-
 
     # Define the agent constructor and gpi agent
     def agent_constructor(log_prefix: str):

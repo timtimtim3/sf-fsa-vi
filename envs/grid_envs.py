@@ -412,7 +412,8 @@ class OfficeAreasRBF(GridEnv):
         "_": [1, 1, 1],  # White (Starting Area)
     }
 
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, d=1):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, d=1, only_rbf=False):
+        self.only_rbf = only_rbf
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
         self.n_rbfs = sum(self.rbf_lengths.values())
         for phi_symbol, coords_list in self.COORDS_RBFS.items():
@@ -428,7 +429,7 @@ class OfficeAreasRBF(GridEnv):
         self.d = d
 
         # Reserve initial indices for objects
-        start_index = len(self.PHI_OBJ_TYPES)
+        start_index = 0 if only_rbf else len(self.PHI_OBJ_TYPES)
 
         # Reserve indices in our feature-weight vector for each rbf feature
         self.rbf_indices = {}
@@ -456,15 +457,16 @@ class OfficeAreasRBF(GridEnv):
     @property
     def feat_dim(self):
         """Override the feat_dim property to account for rbfs as features."""
-        return len(self.all_objects) + self.n_rbfs
+        return self.n_rbfs if self.only_rbf else len(self.all_objects) + self.n_rbfs
 
     def features(self, state, action, next_state):
         phi = np.zeros(self.feat_dim, dtype=np.float32)
         if next_state in self.object_ids:
             y, x = next_state
             symbol = self.MAP[y, x]
-            object_index = self.all_objects[symbol]
-            phi[object_index] = 1.
+            if not self.only_rbf:
+                object_index = self.all_objects[symbol]
+                phi[object_index] = 1.
 
             for i, center_coords in enumerate(self.COORDS_RBFS[symbol]):
                 cy, cx = center_coords

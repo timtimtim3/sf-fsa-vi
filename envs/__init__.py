@@ -56,6 +56,20 @@ gym.envs.register(
     max_episode_steps=200,
 )
 
+gym.envs.register(
+    id="OfficeAreasRBFOnly-v0",
+    entry_point="envs.grid_envs:OfficeAreasRBF",
+    kwargs={'only_rbf': True},
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasRBFOnlyEval-v0",
+    entry_point="envs.grid_envs:OfficeAreasRBF",
+    kwargs={'only_rbf': True, 'add_obj_to_start': False, 'add_empty_to_start': False},
+    max_episode_steps=200,
+)
+
 # ANCHOR: Delivery environments
 
 gym.envs.register(
