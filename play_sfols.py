@@ -53,12 +53,13 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size)
+        plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        print(w)
         plot_q_vals(i, policy, w, train_env, rbf_data)
 
     # plot_q_vals(9, gpi_agent.policies[9], gpi_agent.tasks[9], train_env, rbf_data)
