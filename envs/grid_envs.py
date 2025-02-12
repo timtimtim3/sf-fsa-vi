@@ -382,16 +382,16 @@ class OfficeAreasRBF(GridEnv):
                     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
     RBF_MAP = np.array([[' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF', ' ', ' ', ' ', ' ', ' ', '_'],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B_RBF', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B_RBF', ' ', ' ', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
                         [' ', ' ', ' ', 'A', 'A_RBF', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B_RBF', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B_RBF', 'B', ' '],
+                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
                         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
                         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
                         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
@@ -399,7 +399,8 @@ class OfficeAreasRBF(GridEnv):
 
     PHI_OBJ_TYPES = ['A', 'B', 'C']
     RBF_STR_NAMES = [f"{phi}_RBF" for phi in PHI_OBJ_TYPES]
-    COORDS_RBFS = {'A': [(5, 4)], 'B': [(0, 3), (2, 8), (11, 11)], 'C': [(0, 6)]}
+    COORDS_RBFS = {'A': [(5, 4)], 'B': [(0, 3), (3, 9), (10, 10)], 'C': [(0, 6)]}
+    D_RBFS = {'A': [1], 'B': [1, 3, 3], 'C': [1]}
 
     # Define a custom color map for Office
     COLOR_MAP = {
@@ -465,9 +466,9 @@ class OfficeAreasRBF(GridEnv):
             object_index = self.all_objects[symbol]
             phi[object_index] = 1.
 
-            for center_coords in self.COORDS_RBFS[symbol]:
+            for i, center_coords in enumerate(self.COORDS_RBFS[symbol]):
                 cy, cx = center_coords
-                rbf_val = gaussian_rbf(x, y, cx, cy, self.d)
+                rbf_val = gaussian_rbf(x, y, cx, cy, d=self.D_RBFS[symbol][i])
                 rbf_index = self.rbf_indices[center_coords]
 
                 phi[rbf_index] = rbf_val

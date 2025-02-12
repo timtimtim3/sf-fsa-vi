@@ -7,7 +7,7 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
 
     for symbol in sorted(env.COORDS_RBFS.keys()):  # Sort A → B → C
         rbf_data[symbol] = {}
-        for center_coords in env.COORDS_RBFS[symbol]:
+        for i, center_coords in enumerate(env.COORDS_RBFS[symbol]):
             cy, cx = center_coords  # RBF center
             rbf_data[symbol][center_coords] = {}
 
@@ -16,7 +16,7 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
                 for x in range(grid_width):
                     if exclude and env.MAP[y, x] in exclude:
                         continue
-                    activation_value = gaussian_rbf(x, y, cx, cy, env.d)
+                    activation_value = gaussian_rbf(x, y, cx, cy, d=env.D_RBFS[symbol][i])
                     if activation_value > include_threshold:
                         rbf_data[symbol][center_coords][(y, x)] = activation_value
     return rbf_data, (grid_height, grid_width)
