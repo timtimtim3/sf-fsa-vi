@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES
     # -----------------------------------------------------------------------------
-    dir_date_postfix = cfg.get("dir_date_postfix", "")
+    dir_date_postfix = cfg.get("dir_postfix", "")
     if dir_date_postfix:
         dir_date_postfix = "-" + dir_date_postfix
     directory = train_env.unwrapped.spec.id + dir_date_postfix
