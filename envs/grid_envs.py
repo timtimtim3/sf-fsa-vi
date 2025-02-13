@@ -400,7 +400,7 @@ class OfficeAreasRBF(GridEnv):
     PHI_OBJ_TYPES = ['A', 'B', 'C']
     RBF_STR_NAMES = [f"{phi}_RBF" for phi in PHI_OBJ_TYPES]
     COORDS_RBFS = {'A': [(5, 4)], 'B': [(0, 3), (3, 9), (10, 10)], 'C': [(0, 6)]}
-    D_RBFS = {'A': [1], 'B': [1, 3, 3], 'C': [1]}
+    D_RBFS = {'A': [1], 'B': [1, 4, 4], 'C': [1]}
 
     # Define a custom color map for Office
     COLOR_MAP = {
@@ -412,7 +412,15 @@ class OfficeAreasRBF(GridEnv):
         "_": [1, 1, 1],  # White (Starting Area)
     }
 
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, d=1, only_rbf=False):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
+                 rbf_distances=None):
+        if rbf_distances is not None:
+            for symbol in rbf_distances:
+                assert len(rbf_distances[symbol]) == len(self.COORDS_RBFS[symbol]), \
+                    (f"incorrect amount of rbf distances specified, got {len(rbf_distances[symbol])} "
+                     f"for symbol {symbol} expected {len(self.COORDS_RBFS[symbol])}")
+                self.D_RBFS[symbol] = rbf_distances[symbol]
+
         self.only_rbf = only_rbf
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
         self.n_rbfs = sum(self.rbf_lengths.values())
@@ -426,7 +434,6 @@ class OfficeAreasRBF(GridEnv):
                          add_empty_to_start=add_empty_to_start)
         self._create_coord_mapping()
         self._create_transition_function()
-        self.d = d
 
         # Reserve initial indices for objects
         start_index = 0 if only_rbf else len(self.PHI_OBJ_TYPES)
