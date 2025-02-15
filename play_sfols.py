@@ -1,3 +1,7 @@
+import glob
+import json
+import os
+
 from fsa.planning import SFFSAValueIteration as ValueIteration
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
@@ -12,9 +16,54 @@ import wandb
 import matplotlib.pyplot as plt
 from envs.utils import get_rbf_activation_data
 from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
+import pickle as pkl
 
 EVAL_EPISODES = 20
 
+
+def load_qtables_from_json(policy_dir: str):
+    """
+    Loads saved qtables from json files
+
+    Parameters:
+        policy_dir (str): The directory where the policy json files are
+    """
+    q_tables = {}  # Dictionary to store loaded policies
+    # List all JSON files in the policy directory that match 'qtable_polX.json'
+    for filename in sorted(os.listdir(policy_dir)):  # Sort ensures policies are loaded in order
+        if filename.startswith("qtable_pol") and filename.endswith(".json"):
+            policy_index = int(filename.split("qtable_pol")[1].split(".json")[0])  # Extract policy index
+            q_table_path = os.path.join(policy_dir, filename)
+
+            with open(q_table_path, "r") as f:
+                q_table_serialized = json.load(f)
+
+            # Convert back: keys from str to tuple, values from list to np.array (if necessary)
+            q_table_original = {
+                eval(k): np.array(v) if isinstance(v, list) else v
+                for k, v in q_table_serialized.items()
+            }
+
+            q_tables[policy_index] = q_table_original  # Store in dict with policy index as key
+    return q_tables
+
+def load_qtables_from_pickles(policy_dir: str):
+    """
+    Loads saved qtables from pickle files
+
+    Parameters:
+        policy_dir (str): The directory where the policy pickle files are
+    """
+
+    # Load policy pickle files from the directory
+    pkl_files = sorted(glob.glob(os.path.join(policy_dir, "discovered_policy_*.pkl")))
+    print(f"Loading {len(pkl_files)} policies from {policy_dir}")
+    q_tables = {}
+    for i, pkl_path in enumerate(pkl_files):
+        with open(pkl_path, "rb") as fp:
+            policy_data = pkl.load(fp)
+        q_tables[i] = policy_data["q_table"]
+    return q_tables
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
@@ -49,7 +98,12 @@ def main(cfg: DictConfig) -> None:
         dir_date_postfix = "-" + dir_date_postfix
     directory = train_env.unwrapped.spec.id + dir_date_postfix
     policy_dir = f"results/sfols/policies/{directory}"
-    gpi_agent.load_policies_and_tasks(policy_dir)
+    gpi_agent.load_tasks(policy_dir)
+
+    # Load from json since pickles don't work
+    q_tables = load_qtables_from_json(policy_dir)
+
+    gpi_agent.load_policies(policy_dir, q_tables)
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
@@ -60,9 +114,10 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
         print(w)
-        plot_q_vals(i, policy, w, train_env, rbf_data)
+        # plot_q_vals(i, q_tables[i], w, train_env, rbf_data)
+        plot_q_vals(i, policy.q_table, w, train_env, rbf_data)
 
-    # plot_q_vals(9, gpi_agent.policies[9], gpi_agent.tasks[9], train_env, rbf_data)
+    # plot_q_vals(9, gpi_agent.policies[9].q_table, gpi_agent.tasks[9], train_env, rbf_data)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on

@@ -1,3 +1,5 @@
+import json
+
 from fsa.planning import SFFSAValueIteration as ValueIteration
 from sfols.rl.utils.utils import policy_eval_exact
 from sfols.rl.successor_features.gpi import GPI
@@ -16,6 +18,8 @@ import hydra
 import envs
 import gym
 import os
+from sfols.plotting.plotting import plot_q_vals
+from envs.utils import get_rbf_activation_data
 
 
 EVAL_EPISODES = 20
@@ -74,8 +78,12 @@ def main(cfg: DictConfig) -> None:
 
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
-    shutil.rmtree(f"results/sfols/policies/{directory}", ignore_errors=True)
-    os.makedirs(f"results/sfols/policies/{directory}", exist_ok=True)
+    base_save_dir = f"results/sfols/policies/{directory}"
+    shutil.rmtree(base_save_dir, ignore_errors=True)
+    os.makedirs(base_save_dir, exist_ok=True)
+
+    if "RBF" in env_name:
+        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
 
     for ols_iter in range(cfg.max_iter_ols):
         print(f"ols_iter: {ols_iter}")
@@ -87,11 +95,42 @@ def main(cfg: DictConfig) -> None:
         w = ols.next_w()
         print(f"Training {w}")
 
+        # gpi_agent.learn(w=w, **cfg.gpi.learn)
         gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), **cfg.gpi.learn)
         value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w) # Do the expectation analytically
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
+        # Save Q-tables as .json files
+        for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+            q_table_serializable = {
+                str(k): v.tolist() if isinstance(v, np.ndarray) else v
+                for k, v in policy.q_table.items()
+            }
+
+            q_table_path = f"{base_save_dir}/qtable_pol{i}.json"
+            with open(q_table_path, "w") as f:
+                json.dump(q_table_serializable, f, indent=4)
+
+            # plot and save q-vals
+            plot_q_vals(i, policy.q_table, w, train_env, rbf_data, save_path=f"{base_save_dir}/qvals_pol{i}.png",
+                        show=False)
+
+    # Save Q-tables as .json files
+    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        q_table_serializable = {
+            str(k): v.tolist() if isinstance(v, np.ndarray) else v
+            for k, v in policy.q_table.items()
+        }
+
+        q_table_path = f"{base_save_dir}/qtable_pol{i}.json"
+        with open(q_table_path, "w") as f:
+            json.dump(q_table_serializable, f, indent=4)
+
+        # plot and save q-vals
+        plot_q_vals(i, policy.q_table, w, train_env, rbf_data, save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
+
+    # Save policies as .pkl files
     for i, pi in enumerate(gpi_agent.policies):
         d = vars(pi)
         d.pop("replay_buffer")
