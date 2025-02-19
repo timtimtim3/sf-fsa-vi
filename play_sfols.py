@@ -2,7 +2,6 @@ import glob
 import json
 import os
 
-from fsa.planning import SFFSAValueIteration as ValueIteration
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig
@@ -73,6 +72,11 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
 
+    if "RBFOnly" in env_name:
+        from fsa.planning import SFFSAValueIterationAreasRBFOnly as ValueIteration
+    else:
+        from fsa.planning import SFFSAValueIteration as ValueIteration
+
     # train_env = gym.make(env_name, add_obj_to_start=True if add_obj_to_start is None else add_obj_to_start)
     train_env = gym.make(env_name, add_obj_to_start=False, add_empty_to_start=False)
     eval_env = gym.make(env_name)
@@ -105,17 +109,17 @@ def main(cfg: DictConfig) -> None:
 
     gpi_agent.load_policies(policy_dir, q_tables)
 
-    if "RBF" in env_name:
-        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size, train_env)
+    # if "RBF" in env_name:
+    #     rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
+    #     plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
-    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        print(w)
-        # plot_q_vals(i, q_tables[i], w, train_env, rbf_data)
-        plot_q_vals(i, policy.q_table, w, train_env, rbf_data)
+    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+    #     print(i, w)
+    #     # plot_q_vals(i, q_tables[i], w, train_env, rbf_data)
+    #     plot_q_vals(i, policy.q_table, w, train_env, rbf_data)
 
     # plot_q_vals(9, gpi_agent.policies[9].q_table, gpi_agent.tasks[9], train_env, rbf_data)
 
@@ -129,29 +133,29 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
-    # print("Performing value iteration")
-    # planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
-    # W = None
-    # times = []
-    #
-    # for j in range(50):
-    #     W, time = planning.traverse(W, num_iters=1)
-    #     times.append(time)
-    #
-    #     rewards = []
-    #     for _ in range(EVAL_EPISODES):
-    #         acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-    #         rewards.append(acc_reward)
-    #
-    #     avg_reward = np.mean(rewards)
-    #     log_dict = {
-    #         "evaluation/acc_reward": avg_reward,
-    #         "evaluation/iter": j,
-    #         "evaluation/time": np.sum(times)
-    #     }
-    #
-    # final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    # print(f"Final reward (rendered): {final_reward}")
+    print("Performing value iteration")
+    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
+    W = None
+    times = []
+
+    for j in range(50):
+        W, time = planning.traverse(W, num_iters=1)
+        times.append(time)
+
+        rewards = []
+        for _ in range(EVAL_EPISODES):
+            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
+            rewards.append(acc_reward)
+
+        avg_reward = np.mean(rewards)
+        log_dict = {
+            "evaluation/acc_reward": avg_reward,
+            "evaluation/iter": j,
+            "evaluation/time": np.sum(times)
+        }
+
+    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    print(f"Final reward (rendered): {final_reward}")
 
     train_env.close()
     eval_env.close()  # Close the environment when done

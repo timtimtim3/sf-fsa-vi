@@ -1,6 +1,5 @@
 import json
 
-from fsa.planning import SFFSAValueIteration as ValueIteration
 from sfols.rl.utils.utils import policy_eval_exact
 from sfols.rl.successor_features.gpi import GPI
 from sfols.rl.successor_features.ols import OLS
@@ -46,6 +45,11 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
     add_obj_to_start = env_params.get("add_obj_to_start")
+
+    if "RBFOnly" in env_name:
+        from fsa.planning import SFFSAValueIterationAreasRBFOnly as ValueIteration
+    else:
+        from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Default to env defaults if not specified
     kwargs = {
