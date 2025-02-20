@@ -14,7 +14,7 @@ import gym
 import wandb
 import matplotlib.pyplot as plt
 from envs.utils import get_rbf_activation_data
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval
 import pickle as pkl
 
 EVAL_EPISODES = 20
@@ -109,19 +109,16 @@ def main(cfg: DictConfig) -> None:
 
     gpi_agent.load_policies(policy_dir, q_tables)
 
-    # if "RBF" in env_name:
-    #     rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-    #     plot_all_rbfs(rbf_data, grid_size, train_env)
+    if "RBF" in env_name:
+        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
+        plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
     # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
     #     print(i, w)
-    #     # plot_q_vals(i, q_tables[i], w, train_env, rbf_data)
-    #     plot_q_vals(i, policy.q_table, w, train_env, rbf_data)
-
-    # plot_q_vals(9, gpi_agent.policies[9].q_table, gpi_agent.tasks[9], train_env, rbf_data)
+    #     plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
@@ -154,8 +151,17 @@ def main(cfg: DictConfig) -> None:
             "evaluation/time": np.sum(times)
         }
 
-    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    print(f"Final reward (rendered): {final_reward}")
+    # final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    # print(f"Final reward (rendered): {final_reward}")
+
+    for (i, w) in enumerate(W.values()):
+        if i == len(W.keys()) - 1:
+            break
+
+        print(i, w)
+        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w)
+        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
+        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data)
 
     train_env.close()
     eval_env.close()  # Close the environment when done
