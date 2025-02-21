@@ -111,7 +111,7 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size, train_env)
+        # plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
@@ -161,7 +161,7 @@ def main(cfg: DictConfig) -> None:
         print(i, w)
         actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w)
         arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data)
+        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
 
     train_env.close()
     eval_env.close()  # Close the environment when done
