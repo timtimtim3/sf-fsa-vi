@@ -117,8 +117,8 @@ def main(cfg: DictConfig) -> None:
                 json.dump(q_table_serializable, f, indent=4)
 
             # plot and save q-vals
-            plot_q_vals(i, policy.q_table, w, train_env, rbf_data, save_path=f"{base_save_dir}/qvals_pol{i}.png",
-                        show=False)
+            plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data,
+                        save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
 
     # Save Q-tables as .json files
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
@@ -132,7 +132,8 @@ def main(cfg: DictConfig) -> None:
             json.dump(q_table_serializable, f, indent=4)
 
         # plot and save q-vals
-        plot_q_vals(i, policy.q_table, w, train_env, rbf_data, save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
+        plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data,
+                    save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
 
     # Save policies as .pkl files
     for i, pi in enumerate(gpi_agent.policies):
