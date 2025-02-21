@@ -4,6 +4,7 @@ import gym
 from gym.spaces import Discrete, Box
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf
+from envs.grid_levels import LEVELS
 
 
 class GridEnv(ABC, gym.Env):
@@ -11,13 +12,8 @@ class GridEnv(ABC, gym.Env):
                 'video.frames_per_second': 20}
     LEFT, UP, RIGHT, DOWN = 0, 1, 2, 3
 
-    @property
-    def MAP(self):
-        raise NotImplementedError
-
-    @property
-    def PHI_OBJ_TYPES(self):
-        raise NotImplementedError
+    MAP = None
+    PHI_OBJ_TYPES = None
 
     """
     A simplified version of the office environment introduced in [1].
@@ -312,36 +308,15 @@ class Office(GridEnv):
 
 
 class OfficeAreas(GridEnv):
-    MAP = np.array([[' ', ' ', ' ', 'B', 'B', 'X', 'C', ' ', ' ', ' ', ' ', ' ', '_'],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', 'A', 'A', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, level_name="office_areas"):
+        # Load level data from the external LEVELS dictionary.
+        level = LEVELS[level_name]
 
-    PHI_OBJ_TYPES = ['A', 'B', 'C']
+        # Set level-specific attributes.
+        self.MAP = level.MAP
+        self.PHI_OBJ_TYPES = level.PHI_OBJ_TYPES
+        self.COLOR_MAP = level.COLOR_MAP
 
-    # Define a custom color map for Office
-    COLOR_MAP = {
-        "A": [0.6, 0.3, 0],  # Brown
-        "B": [1, 0.6, 0],  # Orange
-        "C": [0.5, 0, 0.5],  # Purple
-        "X": [0, 0, 0],  # Black (Walls)
-        " ": [1, 1, 1],  # White (Empty Space)
-        "_": [1, 1, 1],  # White (Starting Area)
-    }
-
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False):
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start)
         self._create_coord_mapping()
@@ -364,71 +339,21 @@ class OfficeAreas(GridEnv):
 
 
 class OfficeAreasRBF(GridEnv):
-    MAP = np.array([[' ', ' ', ' ', 'B', 'B', 'X', 'C', ' ', ' ', ' ', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', 'A', 'A', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', '_'],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
-    RBF_MAP = np.array([[' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF', ' ', ' ', ' ', ' ', ' ', '_'],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B_RBF', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', 'A', 'A_RBF', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B_RBF', 'B', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-                        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '], ])
-
-    PHI_OBJ_TYPES = ['A', 'B', 'C']
-    RBF_STR_NAMES = [f"{phi}_RBF" for phi in PHI_OBJ_TYPES]
-    COORDS_RBFS = {'A': [(5, 4)], 'B': [(0, 3), (3, 9), (10, 10)], 'C': [(0, 6)]}
-    D_RBFS = {'A': [1], 'B': [1, 4, 4], 'C': [1]}
-
-    # Define a custom color map for Office
-    COLOR_MAP = {
-        "A": [0.6, 0.3, 0],  # Brown
-        "B": [1, 0.6, 0],  # Orange
-        "C": [0.5, 0, 0.5],  # Purple
-        "X": [0, 0, 0],  # Black (Walls)
-        " ": [1, 1, 1],  # White (Empty Space)
-        "_": [1, 1, 1],  # White (Starting Area)
-    }
-
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
-                 rbf_distances=None):
-        if rbf_distances is not None:
-            for symbol in rbf_distances:
-                assert len(rbf_distances[symbol]) == len(self.COORDS_RBFS[symbol]), \
-                    (f"incorrect amount of rbf distances specified, got {len(rbf_distances[symbol])} "
-                     f"for symbol {symbol} expected {len(self.COORDS_RBFS[symbol])}")
-                self.D_RBFS[symbol] = rbf_distances[symbol]
+                 level_name="office_areas_rbf_from_map"):
+        # Load level data from the external LEVELS dictionary.
+        level = LEVELS[level_name]
+
+        # Set level-specific attributes.
+        self.MAP = level.MAP
+        self.PHI_OBJ_TYPES = level.PHI_OBJ_TYPES
+        self.COORDS_RBFS = level.COORDS_RBFS
+        self.D_RBFS = level.D_RBFS
+        self.COLOR_MAP = level.COLOR_MAP
 
         self.only_rbf = only_rbf
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
         self.n_rbfs = sum(self.rbf_lengths.values())
-        for phi_symbol, coords_list in self.COORDS_RBFS.items():
-            for row, col in coords_list:
-                assert self.MAP[row][col] == phi_symbol, (
-                    f"Incorrect RBF placed at {(row, col)}: expected {phi_symbol} "
-                    f"in MAP, got {self.MAP[row][col]}")
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start)
