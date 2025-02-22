@@ -48,8 +48,8 @@ def convert_map_to_grid(env, custom_mapping=None):
         np.array: A 2D grid where each cell is assigned a numeric value.
     """
     mapping = {
-        "X": 4,  # Walls (Black)
-        " ": 3,  # Empty Space (White)
+        "X": 4,  # Walls
+        " ": 3,  # Empty Space
         "_": 3,  # Start location (same as empty space)
         "A": 0,  # Object A
         "B": 1,  # Object B

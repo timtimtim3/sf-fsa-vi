@@ -72,14 +72,25 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
 
-    if "RBFOnly" in env_name:
+    # Default to env defaults if not specified
+    train_env_kwargs = {
+        k: v for k, v in {
+            "add_obj_to_start": env_params.get("add_obj_to_start"),
+            "add_empty_to_start": env_params.get("add_empty_to_start"),
+            "level_name": env_params.get("level_name"),
+            "only_rbf": env_params.get("only_rbf")
+        }.items() if v is not None
+    }
+    excluded_keys = {"add_obj_to_start", "add_empty_to_start"}
+    eval_env_kwargs = {k: v for k, v in train_env_kwargs.items() if k not in excluded_keys}
+
+    train_env = gym.make(env_name, **train_env_kwargs)
+    eval_env = gym.make(env_name, **eval_env_kwargs)
+
+    if train_env.only_rbf:
         from fsa.planning import SFFSAValueIterationAreasRBFOnly as ValueIteration
     else:
         from fsa.planning import SFFSAValueIteration as ValueIteration
-
-    # train_env = gym.make(env_name, add_obj_to_start=True if add_obj_to_start is None else add_obj_to_start)
-    train_env = gym.make(env_name, add_obj_to_start=False, add_empty_to_start=False)
-    eval_env = gym.make(env_name)
 
     # Create the FSA env wrapper, to evaluate the FSA
     fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env) # Load FSA

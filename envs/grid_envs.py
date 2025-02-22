@@ -224,7 +224,7 @@ class GridEnv(ABC, gym.Env):
                     self.viewer.square_map[(i, j)] = square
 
         # Use the subclass's color map if available, otherwise fallback
-        color_map = getattr(self, 'COLOR_MAP', {})  # Default to empty dict
+        color_map = getattr(self, 'RENDER_COLOR_MAP', {})  # Default to empty dict
 
         for square_coords in self.viewer.square_map:
             square = self.viewer.square_map[square_coords]
@@ -278,7 +278,7 @@ class Office(GridEnv):
     """
 
     # Define a custom color map for Office
-    COLOR_MAP = {
+    RENDER_COLOR_MAP = {
         "C1": [0.6, 0.3, 0],  # Brown (Coffee Machine 1)
         "C2": [0.5, 0.25, 0],  # Dark Brown (Coffee Machine 2)
         "O1": [1, 0.6, 0],  # Orange (Office Location 1)
@@ -315,7 +315,8 @@ class OfficeAreas(GridEnv):
         # Set level-specific attributes.
         self.MAP = level.MAP
         self.PHI_OBJ_TYPES = level.PHI_OBJ_TYPES
-        self.COLOR_MAP = level.COLOR_MAP
+        self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
+        self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start)
@@ -349,7 +350,8 @@ class OfficeAreasRBF(GridEnv):
         self.PHI_OBJ_TYPES = level.PHI_OBJ_TYPES
         self.COORDS_RBFS = level.COORDS_RBFS
         self.D_RBFS = level.D_RBFS
-        self.COLOR_MAP = level.COLOR_MAP
+        self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
+        self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
 
         self.only_rbf = only_rbf
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}

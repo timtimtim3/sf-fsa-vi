@@ -8,7 +8,8 @@ import re
 class LevelDataOfficeAreas:
     MAP: np.ndarray
     PHI_OBJ_TYPES: List[str]
-    COLOR_MAP: Dict[str, List[float]]
+    RENDER_COLOR_MAP: Dict[str, List[float]]
+    QVAL_COLOR_MAP: Optional[Dict[str, int]] = None
 
 
 @dataclass
@@ -129,20 +130,28 @@ office_areas = LevelDataOfficeAreas(
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     ]),
     PHI_OBJ_TYPES=['A', 'B', 'C'],
-    COLOR_MAP={
+    RENDER_COLOR_MAP={
         "A": [0.6, 0.3, 0],  # Brown
         "B": [1, 0.6, 0],  # Orange
         "C": [0.5, 0, 0.5],  # Purple
         "X": [0, 0, 0],  # Black (Walls)
         " ": [1, 1, 1],  # White (Empty Space)
         "_": [1, 1, 1],  # White (Starting Area)
+    },
+    QVAL_COLOR_MAP={
+        "X": 4,  # Walls
+        " ": 3,  # Empty Space
+        "_": 3,  # Start location (same as empty space)
+        "A": 0,  # Object A
+        "B": 1,  # Object B
+        "C": 2,  # Object C
     }
 )
 
 office_areas_rbf = LevelDataOfficeAreasRBF(
     MAP=office_areas.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
-    COLOR_MAP=office_areas.COLOR_MAP,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     COORDS_RBFS={
         'A': [(5, 4)],
         'B': [(0, 3), (3, 9), (10, 10)],
@@ -153,12 +162,13 @@ office_areas_rbf = LevelDataOfficeAreasRBF(
         'B': [1, 4, 4],
         'C': [1]
     },
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
 office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
     MAP=office_areas.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
-    COLOR_MAP=office_areas.COLOR_MAP,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     RBF_MAP=np.array([
         [' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF_1', ' ', ' ', ' ', ' ', ' ', '_'],
         [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
@@ -177,7 +187,56 @@ office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     ]),
-    DEFAULT_D_RBFS=1
+    DEFAULT_D_RBFS=1,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
+)
+
+office_areas_rbf_semi_circle = LevelDataOfficeAreasRBF(
+    MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'B', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'A', ' ', 'A', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    PHI_OBJ_TYPES=['A', 'B'],
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    RBF_MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'B_RBF', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'A', ' ', 'A', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A_RBF', ' ', ' ', ' ', 'A_RBF', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', 'A', ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', 'A', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    DEFAULT_D_RBFS=4,
+    QVAL_COLOR_MAP={
+        " ": 2,  # Empty Space
+        "_": 2,  # Start location (same as empty space)
+        "A": 0,  # Object A
+        "B": 1,  # Object B
+    }
 )
 
 # Dictionary mapping level names to LevelData objects.
@@ -185,4 +244,5 @@ LEVELS = {
     "office_areas": office_areas,
     "office_areas_rbf": office_areas_rbf,
     "office_areas_rbf_from_map": office_areas_rbf_from_map,
+    "office_areas_rbf_semi_circle": office_areas_rbf_semi_circle
 }
