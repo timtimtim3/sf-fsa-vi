@@ -122,14 +122,14 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        # plot_all_rbfs(rbf_data, grid_size, train_env)
+        plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
-    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-    #     print(i, w)
-    #     plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
+    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        print(i, w)
+        plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on

@@ -238,6 +238,9 @@ class SFFSAValueIterationAreasRBFOnly:
                 if self.fsa.is_terminal(u):
                     continue
 
+                all_phis = []
+                all_q_targets = []
+
                 for (vidx, v) in enumerate(U):
                     # For each transition
                     # i.e. for each other state v for which there exists an edge between u and v (transition)
@@ -251,23 +254,20 @@ class SFFSAValueIterationAreasRBFOnly:
 
                     exit_states = exit_states_mapping[self.fsa.symbols_to_phi[proposition]]  # This is a set
 
-                    q_targets = np.zeros(len(exit_states))
-                    phis = np.zeros((len(exit_states), self.env.feat_dim))
-                    psis = np.zeros((len(exit_states), self.env.feat_dim))
-
-                    if self.fsa.is_terminal(v):
-                        q_targets = np.ones(len(exit_states))
-
-                    for i, exit_state in enumerate(exit_states):
-                        if not self.fsa.is_terminal(v):
+                    for exit_state in exit_states:
+                        if self.fsa.is_terminal(v):
+                            q_val = 1.0  # Terminal state
+                        else:
                             psi = self.gpi.max_q(exit_state, W[vidx])
-                            q_val = np.dot(psi, W[vidx])
-
-                            psis[i] = psi
-                            q_targets[i] = q_val
+                            q_val = np.dot(psi, W[vidx])  # Q-value estimate
 
                         phi = self.env.env.features(state=None, action=None, next_state=exit_state)
-                        phis[i] = phi
+
+                        all_q_targets.append(q_val)
+                        all_phis.append(phi)
+
+                phis = np.array(all_phis)
+                q_targets = np.array(all_q_targets)
 
                 # Do linear (regression) to fit w
                 eps = 1e-5  # eps is defined as regularization parameter
