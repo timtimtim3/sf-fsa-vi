@@ -365,13 +365,17 @@ class OfficeAreasRBF(GridEnv):
         # Reserve initial indices for objects
         start_index = 0 if only_rbf else len(self.PHI_OBJ_TYPES)
 
+        self.prop_at_feat_idx = []
+
         # Reserve indices in our feature-weight vector for each rbf feature
         self.rbf_indices = {}
         current_index = start_index
-        for key in sorted(self.COORDS_RBFS.keys()):  # Sort A -> B -> C
-            for center_coords in self.COORDS_RBFS[key]:
+        for prop in sorted(self.COORDS_RBFS.keys()):  # Sort A -> B -> C
+            for center_coords in self.COORDS_RBFS[prop]:
                 self.rbf_indices[center_coords] = current_index
                 current_index += 1
+
+                self.prop_at_feat_idx.append(prop)
 
         exit_states = {}
         for s in self.object_ids:

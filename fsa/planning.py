@@ -292,3 +292,146 @@ class SFFSAValueIterationAreasRBFOnly:
         W = {u: W[U.index(u)] for u in U}
 
         return W, np.cumsum(timemarks)
+
+
+class SFFSAValueIterationAugmented:
+
+    def __init__(self,
+                 env,
+                 gpi,
+                 constraint: Optional[dict] = None) -> None:
+
+        self.env = env
+        self.fsa = self.env.fsa
+        self.gpi = gpi
+        self.exit_states = self.env.exit_states
+        self.all_exit_states = []
+        self.constraint = constraint
+
+        for key, exit_states in self.exit_states.items():
+            self.all_exit_states.extend(list(exit_states))
+
+        self.U = self.fsa.states
+        self.n_exit_states = len(self.all_exit_states)
+        self.n_fsa_states = len(self.U)
+        self.feat_dim = self.env.feat_dim
+        self.augmented_feature_dim = self.n_fsa_states * self.env.feat_dim
+        self.curr_iter = 0
+
+        self.indicator_edge_has_proposition = np.zeros((self.n_fsa_states, self.augmented_feature_dim))
+
+        # For each possible starting state
+        for (uidx, u) in enumerate(self.U):
+            if self.fsa.is_terminal(u):
+                continue
+
+            indicator_edge_has_proposition = np.zeros((self.augmented_feature_dim,))
+
+            for (vidx, v) in enumerate(self.U):
+                if not self.fsa.graph.has_edge(u, v):
+                    continue
+
+                # Get the predicate that satisfies the transition
+                proposition = self.fsa.get_predicate((u, v))
+                assert len(proposition) == 1, "Only one predicate is supported"
+                proposition = proposition[0]
+
+                indicator_edge_has_proposition[vidx * self.feat_dim: (vidx + 1) * self.feat_dim] = (
+                        np.array(self.env.env.prop_at_feat_idx) == proposition
+                ).astype(int)
+
+            self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
+
+        print(self.indicator_edge_has_proposition)
+
+    def get_augmented_phi(self, phi, uidx, n_fsa_states, feat_dim):
+        augmented_phi = np.zeros((n_fsa_states * feat_dim,))
+        augmented_phi[uidx * feat_dim: (uidx + 1) * feat_dim] = phi
+        return augmented_phi
+
+    def get_augmented_psis(self, psis, n_fsa_states, feat_dim, indicator_edge_has_proposition):
+        augmented_psis = np.zeros((psis.shape[0], n_fsa_states * feat_dim))
+
+        for i, psi in enumerate(psis):
+            # Repeat psi across n_fsa_states times
+            augmented_psi = np.tile(psi, n_fsa_states)
+            augmented_psi *= indicator_edge_has_proposition
+            augmented_psis[i, :] = augmented_psi
+        return augmented_psis
+
+    def traverse(self,
+                 weights=None,
+                 num_iters: Optional[dict] = 100):
+
+        if weights is None:
+            W = np.zeros((self.augmented_feature_dim,))
+        else:
+            W = weights.copy()
+
+        # print(W)
+
+        timemarks = [0]
+
+        for _ in range(num_iters):
+            start_time = time.time()
+
+            W_old = W.copy()  # Keep to compare diff with new weights for stopping iteration
+
+            # For each possible starting state
+            for (uidx, u) in enumerate(self.U):
+                augmented_phis = np.zeros((self.n_exit_states, self.augmented_feature_dim))
+                q_targets = []
+
+                for i, exit_state in enumerate(self.all_exit_states):
+                    if not self.fsa.is_terminal(u):
+                        all_policy_psis = np.stack([policy.q_table[exit_state] for policy in self.gpi.policies])
+                        all_policy_q_vals = []
+                        for psis in all_policy_psis:
+                            augmented_psis = self.get_augmented_psis(psis, self.n_fsa_states, self.feat_dim,
+                                                                     self.indicator_edge_has_proposition[uidx])
+                            q_vals = augmented_psis @ W
+
+                            # if self.curr_iter == 49 and uidx == 2:
+                            #     print(psis)
+                            #     print(augmented_psis)
+                            #     print(W)
+                            #     print(q_vals)
+                            #     print()
+
+                            # Assuming greedy policies, expectation over actions becomes the maximum q-val, otherwise
+                            # we should take something like weighted average using softmax over q-vals
+                            max_q_val = np.max(q_vals)
+                            all_policy_q_vals.append(max_q_val)
+
+                        # Maximize over policies
+                        q_target = max(all_policy_q_vals)
+                        q_targets.append(q_target)
+                    else:
+                        q_targets.append(1)
+
+                    # if uidx == 2:
+                    #     raise Exception
+
+                    phi = self.env.env.features(state=None, action=None, next_state=exit_state)
+                    augmented_phi = self.get_augmented_phi(phi, uidx, self.n_fsa_states, self.feat_dim)
+                    augmented_phis[i, :] = augmented_phi
+
+                q_targets = np.array(q_targets)
+
+                # Do linear (regression) to fit w
+                eps = 1e-5  # eps is defined as regularization parameter
+
+                # Compute the regularized normal equation solution:
+                # w = (Phi^T * Phi + eps * I)^(-1) * Phi^T * q_targets
+                W = np.linalg.inv(augmented_phis.T @ augmented_phis + eps * np.eye(augmented_phis.shape[1])) @ (augmented_phis.T @ q_targets)
+                # print(W)
+
+            elapsed_time = time.time() - start_time
+            timemarks.append(elapsed_time)
+
+            if np.allclose(W, W_old):
+                break
+
+        self.curr_iter += 1
+
+        return W, np.cumsum(timemarks)
