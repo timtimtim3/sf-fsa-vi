@@ -58,6 +58,7 @@ class SFFSAValueIteration:
                     propositions = self.fsa.get_predicate((u, v)) 
                     idxs = [self.fsa.symbols_to_phi[prop] for prop in propositions]  # this gets the indices of the
                     # propositions
+                    print(idxs)
 
                     if self.fsa.is_terminal(v):
                         # If the transition is terminal we get a w of 1 for each proposition that enables this
@@ -196,7 +197,123 @@ class SFFSAValueIterationAreasRBFCentersOnly:
         return W, np.cumsum(timemarks)
 
 
-class SFFSAValueIterationAreasRBFOnly:
+class SFFSAValueIterationRBFOnlyMean:
+
+    def __init__(self,
+                 env,
+                 gpi,
+                 constraint: Optional[dict] = None) -> None:
+
+        self.env = env
+        self.fsa = self.env.fsa
+        self.gpi = gpi
+        self.exit_states = self.env.exit_states
+        self.constraint = constraint
+
+    def traverse(self,
+                 weights: Optional[dict] = None,
+                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
+
+        exit_states = self.exit_states
+
+        U = self.fsa.states
+
+        if weights is None:
+            W = np.zeros((len(U), self.env.feat_dim))
+            # For each fsa state we have a vector w of size phi that indicates
+            # how important each goal is given that we're in that fsa state
+        else:
+            W = np.asarray(list(weights.values()))
+
+        timemarks = [0]
+
+        for _ in range(num_iters):
+
+            start_time = time.time()
+
+            W_old = W.copy()  # Keep to compare diff with new weights for stopping iteration
+
+            # For each possible starting state
+            for (uidx, u) in enumerate(U):
+
+                if self.fsa.is_terminal(u):
+                    continue
+
+                weights = []
+
+                for (vidx, v) in enumerate(U):
+                    # For each transition
+                    # (i.e. for each other state v for which there exists an edge between u and v (transition))
+                    if not self.fsa.graph.has_edge(u, v):
+                        continue
+
+                    w = np.zeros((self.env.feat_dim))  # We define a task vector of size phi_dim
+
+                    # Get the predicate that satisfies the transition
+                    proposition = self.fsa.get_predicate((u, v))
+                    assert len(proposition) == 1, "Only one predicate is supported"
+                    proposition = proposition[0]
+
+                    feature_idxs = np.where(np.array(self.env.env.prop_at_feat_idx) == proposition)[0]
+                    exit_states = self.exit_states[self.fsa.symbols_to_phi[proposition]]  # This is a set with all
+                    # states that are in the desired Area
+
+                    if self.fsa.is_terminal(v):
+                        # If the transition is terminal we get a w of 1 for each proposition that enables this
+                        # transition
+                        w[feature_idxs] = 1
+                    else:
+                        q_vals = []
+                        feature_weights = {feature_idx: [] for feature_idx in feature_idxs}
+                        for exit_state in exit_states:
+                            q_val = np.dot(self.gpi.max_q(exit_state, W[vidx]), W[vidx])
+                            phi = self.env.env.features(state=None, action=None, next_state=exit_state)
+                            q_vals.append(q_val)
+
+                            for feature_idx in feature_idxs:
+                                feature_weight = phi[feature_idx]
+                                feature_weights[feature_idx].append(feature_weight)
+
+                        q_vals = np.array(q_vals)
+
+                        # Normalize weights for each feature index
+                        for feature_idx in feature_idxs:
+                            feature_weights_arr = np.array(feature_weights[feature_idx])  # Convert to NumPy array
+
+                            # Normalize weights so they sum to 1
+                            sum_feature_weights = np.sum(feature_weights_arr)
+                            if sum_feature_weights != 0:
+                                normalized_weights = feature_weights_arr / sum_feature_weights
+                            else:
+                                normalized_weights = np.zeros_like(feature_weights_arr)  # Avoid division by zero
+
+                            # Compute weighted mean
+                            w[feature_idx] = np.sum(normalized_weights * q_vals)  # Weighted sum
+
+                    weights.append(w)
+
+                weights = np.asarray(weights)
+                weights = np.sum(weights, axis=0)  # Sum the rows, so we get w of size phi_dim where each element
+                # is the sum over all transitions from u to v1, v2, v3 etc.
+
+                if self.constraint:
+                    for c in self.constraint:
+                        weights[c] = self.constraint[c]
+
+                W[uidx] = weights
+
+            elapsed_time = time.time() - start_time
+            timemarks.append(elapsed_time)
+
+            if np.allclose(W, W_old):
+                break
+
+        W = {u: W[U.index(u)] for u in U}
+
+        return W, np.cumsum(timemarks)
+
+
+class SFFSAValueIterationAreasRBFOnlyLeastSquares:
 
     def __init__(self,
                  env,

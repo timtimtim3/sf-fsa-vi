@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import importlib
 
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
@@ -66,6 +67,10 @@ def load_qtables_from_pickles(policy_dir: str):
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    plot = cfg.get("plot", True)
+    value_iter_type = cfg.get("value_iter_type", None)
+    dir_date_postfix = cfg.get("dir_postfix", None)
+
     wandb.init(mode="disabled")
 
     # Create the train and eval environments
@@ -87,8 +92,17 @@ def main(cfg: DictConfig) -> None:
     train_env = gym.make(env_name, **train_env_kwargs)
     eval_env = gym.make(env_name, **eval_env_kwargs)
 
-    if train_env.only_rbf:
-        # from fsa.planning import SFFSAValueIterationAreasRBFOnly as ValueIteration
+    if value_iter_type:
+        # Construct the full module path
+        module_name = "fsa.planning"
+        class_name = value_iter_type  # The string should match the class name
+
+        # Dynamically import the module
+        module = importlib.import_module(module_name)
+
+        # Get the class from the module
+        ValueIteration = getattr(module, class_name)
+    elif train_env.only_rbf:
         from fsa.planning import SFFSAValueIterationAugmented as ValueIteration
     else:
         from fsa.planning import SFFSAValueIteration as ValueIteration
@@ -109,7 +123,6 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES
     # -----------------------------------------------------------------------------
-    dir_date_postfix = cfg.get("dir_postfix", "")
     if dir_date_postfix:
         dir_date_postfix = "-" + dir_date_postfix
     directory = train_env.unwrapped.spec.id + dir_date_postfix
@@ -123,14 +136,16 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        # plot_all_rbfs(rbf_data, grid_size, train_env)
+        if plot:
+            plot_all_rbfs(rbf_data, grid_size, train_env)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
-    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-    #     print(i, w)
-    #     plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
+    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        print(i, w)
+        if plot:
+            plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
@@ -165,8 +180,8 @@ def main(cfg: DictConfig) -> None:
 
     print(W)
 
-    # final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    # print(f"Final reward (rendered): {final_reward}")
+    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    print(f"Final reward (rendered): {final_reward}")
 
     for (i, w) in enumerate(W.values()):
         if i == len(W.keys()) - 1:
