@@ -459,7 +459,7 @@ class SFFSAValueIterationAugmented:
 
             self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
 
-        print(self.indicator_edge_has_proposition)
+        # print(self.indicator_edge_has_proposition)
 
     def get_augmented_phi(self, phi, uidx, n_fsa_states, feat_dim):
         augmented_phi = np.zeros((n_fsa_states * feat_dim,))
@@ -493,6 +493,9 @@ class SFFSAValueIterationAugmented:
             start_time = time.time()
 
             W_old = W.copy()  # Keep to compare diff with new weights for stopping iteration
+
+            all_augmented_phis = np.zeros((self.n_exit_states * self.n_fsa_states, self.augmented_feature_dim))
+            all_q_targets = np.zeros((self.n_exit_states * self.n_fsa_states,))
 
             # For each possible starting state
             for (uidx, u) in enumerate(self.U):
@@ -535,13 +538,16 @@ class SFFSAValueIterationAugmented:
 
                 q_targets = np.array(q_targets)
 
-                # Do linear (regression) to fit w
-                eps = 1e-5  # eps is defined as regularization parameter
+                all_augmented_phis[uidx * self.n_exit_states: (uidx + 1) * self.n_exit_states, :] = augmented_phis
+                all_q_targets[uidx * self.n_exit_states: (uidx + 1) * self.n_exit_states] = q_targets
 
-                # Compute the regularized normal equation solution:
-                # w = (Phi^T * Phi + eps * I)^(-1) * Phi^T * q_targets
-                W = np.linalg.inv(augmented_phis.T @ augmented_phis + eps * np.eye(augmented_phis.shape[1])) @ (augmented_phis.T @ q_targets)
-                # print(W)
+            # Do linear (regression) to fit w
+            eps = 1e-5  # eps is defined as regularization parameter
+
+            # Compute the regularized normal equation solution:
+            # w = (Phi^T * Phi + eps * I)^(-1) * Phi^T * q_targets
+            W = np.linalg.inv(all_augmented_phis.T @ all_augmented_phis + eps * np.eye(all_augmented_phis.shape[1])) @ (all_augmented_phis.T @ all_q_targets)
+            # print(W)
 
             elapsed_time = time.time() - start_time
             timemarks.append(elapsed_time)
