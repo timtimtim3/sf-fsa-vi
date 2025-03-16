@@ -178,13 +178,8 @@ def main(cfg: DictConfig) -> None:
             "evaluation/time": np.sum(times)
         }
 
-        print(np.round(W, 2))
-
-    # print(W)
-    print(np.round(W, 2))
-
-    # final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    # print(f"Final reward (rendered): {final_reward}")
+    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    print(f"Final reward (rendered): {final_reward}")
 
     for (i, w) in enumerate(W.values()):
         if i == len(W.keys()) - 1:

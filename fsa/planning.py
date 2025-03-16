@@ -411,6 +411,23 @@ class SFFSAValueIterationAreasRBFOnlyLeastSquares:
         return W, np.cumsum(timemarks)
 
 
+def get_augmented_phi(phi, uidx, n_fsa_states, feat_dim):
+    augmented_phi = np.zeros((n_fsa_states * feat_dim,))
+    augmented_phi[uidx * feat_dim: (uidx + 1) * feat_dim] = phi
+    return augmented_phi
+
+
+def get_augmented_psis(psis, n_fsa_states, feat_dim, indicator_edge_has_proposition):
+    augmented_psis = np.zeros((psis.shape[0], n_fsa_states * feat_dim))
+
+    for i, psi in enumerate(psis):
+        # Repeat psi across n_fsa_states times
+        augmented_psi = np.tile(psi, n_fsa_states)
+        augmented_psi *= indicator_edge_has_proposition
+        augmented_psis[i, :] = augmented_psi
+    return augmented_psis
+
+
 class SFFSAValueIterationAugmented:
 
     def __init__(self,
@@ -459,33 +476,14 @@ class SFFSAValueIterationAugmented:
 
             self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
 
-        # print(self.indicator_edge_has_proposition)
-
-    def get_augmented_phi(self, phi, uidx, n_fsa_states, feat_dim):
-        augmented_phi = np.zeros((n_fsa_states * feat_dim,))
-        augmented_phi[uidx * feat_dim: (uidx + 1) * feat_dim] = phi
-        return augmented_phi
-
-    def get_augmented_psis(self, psis, n_fsa_states, feat_dim, indicator_edge_has_proposition):
-        augmented_psis = np.zeros((psis.shape[0], n_fsa_states * feat_dim))
-
-        for i, psi in enumerate(psis):
-            # Repeat psi across n_fsa_states times
-            augmented_psi = np.tile(psi, n_fsa_states)
-            augmented_psi *= indicator_edge_has_proposition
-            augmented_psis[i, :] = augmented_psi
-        return augmented_psis
-
     def traverse(self,
                  weights=None,
-                 num_iters: Optional[dict] = 100):
+                 num_iters=100):
 
         if weights is None:
             W = np.zeros((self.augmented_feature_dim,))
         else:
-            W = weights.copy()
-
-        # print(W)
+            W = np.asarray(list(weights.values())).reshape(-1)
 
         timemarks = [0]
 
@@ -507,16 +505,9 @@ class SFFSAValueIterationAugmented:
                         all_policy_psis = np.stack([policy.q_table[exit_state] for policy in self.gpi.policies])
                         all_policy_q_vals = []
                         for psis in all_policy_psis:
-                            augmented_psis = self.get_augmented_psis(psis, self.n_fsa_states, self.feat_dim,
-                                                                     self.indicator_edge_has_proposition[uidx])
+                            augmented_psis = get_augmented_psis(psis, self.n_fsa_states, self.feat_dim,
+                                                                self.indicator_edge_has_proposition[uidx])
                             q_vals = augmented_psis @ W
-
-                            # if self.curr_iter == 49 and uidx == 2:
-                            #     print(psis)
-                            #     print(augmented_psis)
-                            #     print(W)
-                            #     print(q_vals)
-                            #     print()
 
                             # Assuming greedy policies, expectation over actions becomes the maximum q-val, otherwise
                             # we should take something like weighted average using softmax over q-vals
@@ -529,11 +520,8 @@ class SFFSAValueIterationAugmented:
                     else:
                         q_targets.append(1)
 
-                    # if uidx == 2:
-                    #     raise Exception
-
                     phi = self.env.env.features(state=None, action=None, next_state=exit_state)
-                    augmented_phi = self.get_augmented_phi(phi, uidx, self.n_fsa_states, self.feat_dim)
+                    augmented_phi = get_augmented_phi(phi, uidx, self.n_fsa_states, self.feat_dim)
                     augmented_phis[i, :] = augmented_phi
 
                 q_targets = np.array(q_targets)
@@ -547,7 +535,6 @@ class SFFSAValueIterationAugmented:
             # Compute the regularized normal equation solution:
             # w = (Phi^T * Phi + eps * I)^(-1) * Phi^T * q_targets
             W = np.linalg.inv(all_augmented_phis.T @ all_augmented_phis + eps * np.eye(all_augmented_phis.shape[1])) @ (all_augmented_phis.T @ all_q_targets)
-            # print(W)
 
             elapsed_time = time.time() - start_time
             timemarks.append(elapsed_time)
@@ -556,5 +543,7 @@ class SFFSAValueIterationAugmented:
                 break
 
         self.curr_iter += 1
+
+        W = {u: W[self.U.index(u) * self.feat_dim: (self.U.index(u) + 1) * self.feat_dim] for u in self.U}
 
         return W, np.cumsum(timemarks)
