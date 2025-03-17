@@ -109,7 +109,7 @@ class SFFSAValueIteration:
         return W, np.cumsum(timemarks)
 
 
-class SFFSAValueIterationAreasRBFCentersOnly:
+class SFFSAValueIterationRBFCentersOnly:
 
     def __init__(self,
                  env,
@@ -197,7 +197,7 @@ class SFFSAValueIterationAreasRBFCentersOnly:
         return W, np.cumsum(timemarks)
 
 
-class SFFSAValueIterationRBFOnlyMean:
+class SFFSAValueIterationMean:
 
     def __init__(self,
                  env,
@@ -313,7 +313,7 @@ class SFFSAValueIterationRBFOnlyMean:
         return W, np.cumsum(timemarks)
 
 
-class SFFSAValueIterationAreasRBFOnlyLeastSquares:
+class SFFSAValueIterationLeastSquares:
 
     def __init__(self,
                  env,
@@ -476,6 +476,9 @@ class SFFSAValueIterationAugmented:
 
             self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
 
+        for policy in self.gpi.policies:
+            policy.set_augmented_psi_table(self.n_fsa_states, self.feat_dim, self.indicator_edge_has_proposition)
+
     def traverse(self,
                  weights=None,
                  num_iters=100):
@@ -502,20 +505,26 @@ class SFFSAValueIterationAugmented:
 
                 for i, exit_state in enumerate(self.all_exit_states):
                     if not self.fsa.is_terminal(u):
-                        all_policy_psis = np.stack([policy.q_table[exit_state] for policy in self.gpi.policies])
-                        all_policy_q_vals = []
-                        for psis in all_policy_psis:
-                            augmented_psis = get_augmented_psis(psis, self.n_fsa_states, self.feat_dim,
-                                                                self.indicator_edge_has_proposition[uidx])
-                            q_vals = augmented_psis @ W
+                        action, policy_index, q_target = self.gpi.eval(exit_state, W, uidx=uidx, return_q_val=True,
+                                                                       return_policy_index=True)
+                        # all_policy_q_vals = []
+                        # for policy in self.gpi.policies:
+                        #     psis = policy.q_table[exit_state]
+                        #     augmented_psis = get_augmented_psis(psis, self.n_fsa_states, self.feat_dim,
+                        #                                         self.indicator_edge_has_proposition[uidx])
+                        #     augmented_psis_2 = policy.get_augmented_psis(uidx, exit_state)
+                        #     np.testing.assert_array_equal(augmented_psis, augmented_psis_2)
+                        #
+                        #     q_vals = augmented_psis @ W
+                        #
+                        #     # Assuming greedy policies, expectation over actions becomes the maximum q-val, otherwise
+                        #     # we should take something like weighted average using softmax over q-vals
+                        #     max_q_val = np.max(q_vals)
+                        #     all_policy_q_vals.append(max_q_val)
+                        #
+                        # # Maximize over policies
+                        # q_target = max(all_policy_q_vals)
 
-                            # Assuming greedy policies, expectation over actions becomes the maximum q-val, otherwise
-                            # we should take something like weighted average using softmax over q-vals
-                            max_q_val = np.max(q_vals)
-                            all_policy_q_vals.append(max_q_val)
-
-                        # Maximize over policies
-                        q_target = max(all_policy_q_vals)
                         q_targets.append(q_target)
                     else:
                         q_targets.append(1)

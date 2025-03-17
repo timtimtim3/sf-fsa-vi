@@ -92,6 +92,7 @@ def main(cfg: DictConfig) -> None:
     train_env = gym.make(env_name, **train_env_kwargs)
     eval_env = gym.make(env_name, **eval_env_kwargs)
 
+    psis_are_augmented = True if "augmented" in value_iter_type.lower() else False
     if value_iter_type:
         # Construct the full module path
         module_name = "fsa.planning"
@@ -118,6 +119,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
+                    psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint)
 
     # -----------------------------------------------------------------------------
@@ -142,8 +144,9 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
+    print("Loaded policy weights:")
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        print(i, w)
+        print(i, np.round(w, 2))
         if plot:
             plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
 
@@ -157,7 +160,7 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
-    print("Performing value iteration")
+    print("\nPerforming value iteration...")
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
     W = None
     times = []
@@ -167,26 +170,39 @@ def main(cfg: DictConfig) -> None:
         times.append(time)
 
         rewards = []
-        # for _ in range(EVAL_EPISODES):
-        #     acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-        #     rewards.append(acc_reward)
+        for _ in range(EVAL_EPISODES):
+            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
+            rewards.append(acc_reward)
 
-        avg_reward = np.mean(rewards)
+        if len(rewards) > 0:
+            avg_reward = np.mean(rewards)
+        else:
+            avg_reward = 0
+
         log_dict = {
             "evaluation/acc_reward": avg_reward,
             "evaluation/iter": j,
             "evaluation/time": np.sum(times)
         }
 
-    final_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    print(f"Final reward (rendered): {final_reward}")
+    W_arr = np.asarray(list(W.values())).reshape(-1)
+    print("\nValue iterated weight vector: ")
+    print(np.round(np.asarray(list(W.values())), 2))
 
-    for (i, w) in enumerate(W.values()):
-        if i == len(W.keys()) - 1:
+    # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+
+    # Enable this to do GPI like in original paper
+    # gpi_agent.psis_are_augmented = False
+
+    print("\nPlotting GPI q-values:")
+    for (uidx, w) in enumerate(W.values()):
+        if uidx == len(W.keys()) - 1:
             break
 
-        print(i, w)
-        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w)
+        w_dot = W_arr if gpi_agent.psis_are_augmented else w
+
+        print(uidx, np.round(w, 2))
+        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
         arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
         plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
 
