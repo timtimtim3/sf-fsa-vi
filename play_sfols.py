@@ -47,6 +47,7 @@ def load_qtables_from_json(policy_dir: str):
             q_tables[policy_index] = q_table_original  # Store in dict with policy index as key
     return q_tables
 
+
 def load_qtables_from_pickles(policy_dir: str):
     """
     Loads saved qtables from pickle files
@@ -65,6 +66,7 @@ def load_qtables_from_pickles(policy_dir: str):
         q_tables[i] = policy_data["q_table"]
     return q_tables
 
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     plot = cfg.get("plot", True)
@@ -76,6 +78,10 @@ def main(cfg: DictConfig) -> None:
     # Create the train and eval environments
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
+
+    alg_params = dict(cfg.algorithm)
+    gamma = alg_params.pop("gamma")
+    print(gamma)
 
     # Default to env defaults if not specified
     train_env_kwargs = {
@@ -109,8 +115,10 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env) # Load FSA
+    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env)  # Load FSA
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+    n_fsa_states = len(fsa.states)
+    feat_dim = train_env.feat_dim
 
     # Create the GPI agent shell (no policies yet)
     def agent_constructor(log_prefix: str):
@@ -190,21 +198,27 @@ def main(cfg: DictConfig) -> None:
     print(np.round(np.asarray(list(W.values())), 2))
 
     # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
+        gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
+                             feat_dim=feat_dim, gamma=gamma, render=False, sleep_time=0.1))
+    matrix = np.column_stack((all_gamma_t_q_values, all_max_q, all_gamma_t_v_values, all_v))
+    print(gamma)
+    print(matrix)
 
     # Enable this to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
 
-    print("\nPlotting GPI q-values:")
-    for (uidx, w) in enumerate(W.values()):
-        if uidx == len(W.keys()) - 1:
-            break
-
-        w_dot = W_arr if gpi_agent.psis_are_augmented else w
-
-        print(uidx, np.round(w, 2))
-        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
-        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
+    # print("\nPlotting GPI q-values:")
+    # for (uidx, w) in enumerate(W.values()):
+    #     if uidx == len(W.keys()) - 1:
+    #         break
+    #
+    #     w_dot = W_arr if gpi_agent.psis_are_augmented else w
+    #
+    #     print(uidx, np.round(w, 2))
+    #     actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
+    #     arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
+    #     plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
 
     train_env.close()
     eval_env.close()  # Close the environment when done
