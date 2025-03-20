@@ -133,9 +133,10 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES
     # -----------------------------------------------------------------------------
-    if dir_date_postfix:
+    directory = train_env.unwrapped.spec.id
+    if dir_date_postfix is not None:
         dir_date_postfix = "-" + dir_date_postfix
-    directory = train_env.unwrapped.spec.id + dir_date_postfix
+        directory += dir_date_postfix
     policy_dir = f"results/sfols/policies/{directory}"
     gpi_agent.load_tasks(policy_dir)
 
@@ -198,27 +199,27 @@ def main(cfg: DictConfig) -> None:
     print(np.round(np.asarray(list(W.values())), 2))
 
     # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
-    all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
-        gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
-                             feat_dim=feat_dim, gamma=gamma, render=False, sleep_time=0.1))
-    matrix = np.column_stack((all_gamma_t_q_values, all_max_q, all_gamma_t_v_values, all_v))
-    print(gamma)
-    print(matrix)
+    # all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
+    #     gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
+    #                          feat_dim=feat_dim, gamma=gamma, render=False, sleep_time=0.1))
+    # matrix = np.column_stack((all_gamma_t_q_values, all_max_q, all_gamma_t_v_values, all_v))
+    # print(gamma)
+    # print(matrix)
 
     # Enable this to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
 
-    # print("\nPlotting GPI q-values:")
-    # for (uidx, w) in enumerate(W.values()):
-    #     if uidx == len(W.keys()) - 1:
-    #         break
-    #
-    #     w_dot = W_arr if gpi_agent.psis_are_augmented else w
-    #
-    #     print(uidx, np.round(w, 2))
-    #     actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
-    #     arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-    #     plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
+    print("\nPlotting GPI q-values:")
+    for (uidx, w) in enumerate(W.values()):
+        if uidx == len(W.keys()) - 1:
+            break
+
+        w_dot = W_arr if gpi_agent.psis_are_augmented else w
+
+        print(uidx, np.round(w, 2))
+        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
+        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
+        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
 
     train_env.close()
     eval_env.close()  # Close the environment when done

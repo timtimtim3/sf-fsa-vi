@@ -4,6 +4,40 @@ import numpy as np
 import re
 
 
+def create_rbf_grid(x_min, x_max, y_min, y_max, phi_obj_types, x_feat_count=4, y_feat_count=4, d_rbfs=4):
+    x_dist = abs(x_min - x_max)
+    y_dist = abs(y_min - y_max)
+    dist_between_feat_x = x_dist / (x_feat_count + 1)
+    dist_between_feat_y = y_dist / (y_feat_count + 1)
+
+    coordinates = []
+    for i in range(1, y_feat_count + 1):
+        for j in range(1, x_feat_count + 1):
+            curr_y = y_min + i * dist_between_feat_y
+            curr_x = x_min + j * dist_between_feat_x
+            coordinates.append((curr_y, curr_x))
+
+    all_d_rbfs = [d_rbfs for _ in range(len(coordinates))]
+    coords_rbfs = {symbol: coordinates for symbol in phi_obj_types}
+    d_rbfs_dict = {symbol: all_d_rbfs for symbol in phi_obj_types}
+    return coords_rbfs, d_rbfs_dict
+
+
+# def remove_redundant_rbfs(coords_rbfs, d_rbfs):
+#     # Assuming all symbols have the same rbf grids
+#     some_symbol = coords_rbfs
+#
+#     coords_list = coords_rbfs[some_symbol]
+#     distances_list = d_rbfs[some_symbol]
+#
+#     for i in range(len(coords_list)):
+#         cy, cx = coords_list[i]
+#         distance = distances_list[i]
+#
+#         rbf_val = gaussian_rbf(x, y, cx, cy, d=distance)
+#     pass
+
+
 @dataclass
 class LevelDataOfficeAreas:
     MAP: np.ndarray
@@ -17,15 +51,24 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
     RBF_MAP: Optional[np.ndarray] = None
     COORDS_RBFS: Optional[Dict[str, List[Tuple[int, int]]]] = None
     D_RBFS: Optional[Dict[str, List[int]]] = None
-    DEFAULT_D_RBFS: Union[int, float] = 1  # Default RBF distance if not specified in the map
+    MAP_DEFAULT_D_RBFS: Union[int, float] = 1  # Default RBF distance if not specified in the map
+    CREATE_RBF_GRID: bool = False
+    X_FEAT_COUNT: Optional[int] = None
+    Y_FEAT_COUNT: Optional[int] = None
+    GRID_D_RBFS: Optional[Union[int, float]] = None
+
+    # cut_out_redundant_feat = False,
+    # cut_out_min_activation = 0.1
 
     def __post_init__(self):
         has_rbf_map = self.RBF_MAP is not None
         has_rbf_coords = self.COORDS_RBFS is not None and self.D_RBFS is not None
+        option_count = int(has_rbf_map) + int(has_rbf_coords) + int(self.CREATE_RBF_GRID)
 
         # Ensure exactly one of the two configurations is provided
-        if has_rbf_map == has_rbf_coords:
-            raise ValueError("You must provide either (RBF_MAP) or (COORDS_RBFS and D_RBFS), but not both.")
+        if option_count == 0 or option_count > 1:
+            raise ValueError("You must provide either (RBF_MAP) or (COORDS_RBFS and D_RBFS) or (CREATE_RBF_GRID=True), "
+                             "but you can't use more than one of them.")
 
         # Validate dimensions of RBF_MAP if it exists
         if has_rbf_map and self.RBF_MAP.shape != self.MAP.shape:
@@ -39,8 +82,12 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
         if has_rbf_map:
             self._load_rbf_from_map()
 
-        # Validate that RBFs are correctly placed in MAP
-        self._validate_rbf_placement()
+        if self.CREATE_RBF_GRID:
+            kwargs = {"x_feat_count": self.X_FEAT_COUNT, "y_feat_count": self.Y_FEAT_COUNT, "d_rbfs": self.GRID_D_RBFS}
+            kwargs_not_none = {key: value for key, value in kwargs.items() if value is not None}
+
+            self.COORDS_RBFS, self.D_RBFS = create_rbf_grid(0, len(self.MAP[0]), 0, len(self.MAP),
+                                                            self.PHI_OBJ_TYPES, **kwargs_not_none)
 
     def _validate_manual_rbfs(self):
         """
@@ -60,7 +107,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
         """
         Extracts COORDS_RBFS and D_RBFS from RBF_MAP.
         If an RBF entry in the map includes a number (e.g., "A_RBF_1"), use that as the distance.
-        Otherwise, use DEFAULT_D_RBFS.
+        Otherwise, use MAP_DEFAULT_D_RBFS.
         """
         self.COORDS_RBFS = {}  # Initialize empty dict
         self.D_RBFS = {}  # Initialize empty dict
@@ -77,7 +124,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
                 if match:
                     obj_name = match.group(1)  # Extract "A", "B", etc.
                     distance = int(match.group(2)) if match.group(
-                        2) else self.DEFAULT_D_RBFS  # Extract distance or use default
+                        2) else self.MAP_DEFAULT_D_RBFS  # Extract distance or use default
 
                     # Check that the extracted object name is in PHI_OBJ_TYPES
                     if obj_name not in self.PHI_OBJ_TYPES:
@@ -187,8 +234,19 @@ office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     ]),
-    DEFAULT_D_RBFS=1,
+    MAP_DEFAULT_D_RBFS=1,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
+)
+
+office_areas_rbf_grids = LevelDataOfficeAreasRBF(
+    MAP=office_areas.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    CREATE_RBF_GRID=True,
+    X_FEAT_COUNT=4,
+    Y_FEAT_COUNT=4,
+    GRID_D_RBFS=4
 )
 
 office_areas_rbf_semi_circle = LevelDataOfficeAreasRBF(
@@ -230,7 +288,7 @@ office_areas_rbf_semi_circle = LevelDataOfficeAreasRBF(
         [' ', ' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' '],
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     ]),
-    DEFAULT_D_RBFS=4,
+    MAP_DEFAULT_D_RBFS=4,
     QVAL_COLOR_MAP={
         " ": 2,  # Empty Space
         "_": 2,  # Start location (same as empty space)
@@ -244,5 +302,6 @@ LEVELS = {
     "office_areas": office_areas,
     "office_areas_rbf": office_areas_rbf,
     "office_areas_rbf_from_map": office_areas_rbf_from_map,
+    "office_areas_rbf_grids": office_areas_rbf_grids,
     "office_areas_rbf_semi_circle": office_areas_rbf_semi_circle
 }

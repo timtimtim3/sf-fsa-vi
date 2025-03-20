@@ -58,7 +58,6 @@ class SFFSAValueIteration:
                     propositions = self.fsa.get_predicate((u, v)) 
                     idxs = [self.fsa.symbols_to_phi[prop] for prop in propositions]  # this gets the indices of the
                     # propositions
-                    print(idxs)
 
                     if self.fsa.is_terminal(v):
                         # If the transition is terminal we get a w of 1 for each proposition that enables this

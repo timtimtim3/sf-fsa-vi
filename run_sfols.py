@@ -61,7 +61,7 @@ def main(cfg: DictConfig) -> None:
     eval_env = gym.make(env_name, **eval_env_kwargs)
 
     if train_env.only_rbf:
-        from fsa.planning import SFFSAValueIterationAreasRBFOnly as ValueIteration
+        from fsa.planning import SFFSAValueIterationMean as ValueIteration
     else:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
@@ -102,7 +102,8 @@ def main(cfg: DictConfig) -> None:
         print(f"Training {w}")
 
         # gpi_agent.learn(w=w, **cfg.gpi.learn)
-        gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), **cfg.gpi.learn)
+        gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), ValueIteration=ValueIteration,
+                        **cfg.gpi.learn)
         value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w) # Do the expectation analytically
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)

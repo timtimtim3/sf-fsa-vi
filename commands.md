@@ -28,6 +28,9 @@ python play_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=of
 python play_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=officeAreasRBFOnly +seed=1001 env.level_name="office_areas_rbf_semi_circle" +dir_postfix="SemiCircle-eps0.2-gamma0.95-dist4" +value_iter_type="SFFSAValueIterationMean" +plot=False
 python play_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=officeAreasRBFOnly +seed=1001 env.level_name="office_areas_rbf_semi_circle" +dir_postfix="SemiCircle-eps0.2-gamma0.95-dist4" +value_iter_type="SFFSAValueIterationAugmented" +plot=False
 
+### With level_name
+python play_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBFOnly +seed=1001 +dir_postfix="eps0.2-gamma0.95-dist4" +value_iter_type="SFFSAValueIterationAugmented" +plot=False algorithm.gamma=0.95 env.level_name="office_areas_rbf_grids"
+python run_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBFOnly +seed=1001 ols=bigger-epsilon algorithm.gamma=0.95 env.level_name="office_areas_rbf_grids"
 
 ### Semi-Circle RBFs
 python run_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=officeAreasRBFOnly +seed=1001 ols=bigger-epsilon algorithm.gamma=0.95 env.level_name="office_areas_rbf_semi_circle"
