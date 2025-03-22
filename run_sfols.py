@@ -17,7 +17,7 @@ import hydra
 import envs
 import gym
 import os
-from sfols.plotting.plotting import plot_q_vals
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
 from envs.utils import get_rbf_activation_data
 
 
@@ -90,6 +90,7 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
+        plot_all_rbfs(rbf_data, grid_size, train_env)
 
     for ols_iter in range(cfg.max_iter_ols):
         print(f"ols_iter: {ols_iter}")
@@ -105,6 +106,7 @@ def main(cfg: DictConfig) -> None:
         gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), ValueIteration=ValueIteration,
                         **cfg.gpi.learn)
         value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w) # Do the expectation analytically
+        # Value here is the avereage SF under the current GPI policy under current w (including the policy that was just learned)
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 

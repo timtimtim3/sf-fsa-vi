@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import random
 import gym
@@ -24,7 +26,7 @@ class GridEnv(ABC, gym.Env):
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
 
-    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False):
+    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True):
         """
         Creates a new instance of the coffee environment.
 
@@ -53,7 +55,8 @@ class GridEnv(ABC, gym.Env):
                 elif self.MAP[r, c] == ' ' and add_empty_to_start:
                     self.initial.append((r, c))
 
-        self.w = np.zeros(self.feat_dim)
+        if init_w:
+            self.w = np.zeros(self.feat_dim)
         self.action_space = Discrete(4)
         self.observation_space = Box(low=np.zeros(
             2), high=np.ones(2), dtype=np.float32)
@@ -341,41 +344,23 @@ class OfficeAreas(GridEnv):
 
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
-                 level_name="office_areas_rbf_from_map"):
+                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=True):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
         # Set level-specific attributes.
-        self.MAP = level.MAP
-        self.PHI_OBJ_TYPES = level.PHI_OBJ_TYPES
-        self.COORDS_RBFS = level.COORDS_RBFS
-        self.D_RBFS = level.D_RBFS
+        self.MAP = deepcopy(level.MAP)
+        self.PHI_OBJ_TYPES = deepcopy(level.PHI_OBJ_TYPES)
+        self.COORDS_RBFS = deepcopy(level.COORDS_RBFS)
+        self.D_RBFS = deepcopy(level.D_RBFS)
         self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
         self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
-
         self.only_rbf = only_rbf
-        self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
-        self.n_rbfs = sum(self.rbf_lengths.values())
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
-                         add_empty_to_start=add_empty_to_start)
+                         add_empty_to_start=add_empty_to_start, init_w=False)
         self._create_coord_mapping()
         self._create_transition_function()
-
-        # Reserve initial indices for objects
-        start_index = 0 if only_rbf else len(self.PHI_OBJ_TYPES)
-
-        self.prop_at_feat_idx = []
-
-        # Reserve indices in our feature-weight vector for each rbf feature
-        self.rbf_indices = {}
-        current_index = start_index
-        for prop in sorted(self.COORDS_RBFS.keys()):  # Sort A -> B -> C
-            for center_coords in self.COORDS_RBFS[prop]:
-                self.rbf_indices[center_coords] = current_index
-                current_index += 1
-
-                self.prop_at_feat_idx.append(prop)
 
         exit_states = {}
         for s in self.object_ids:
@@ -386,8 +371,28 @@ class OfficeAreasRBF(GridEnv):
                 exit_states[key] = {s}  # Initialize with a set containing s
             else:
                 exit_states[key].add(s)  # Add new coordinate to the existing set
-
         self.exit_states = exit_states
+
+        if delete_redundant_rbfs:
+            self.remove_redundant_rbfs(min_activation_thresh=min_activation_thresh)
+
+        self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
+        self.n_rbfs = sum(self.rbf_lengths.values())
+        self.w = np.zeros(self.feat_dim)
+
+        # Reserve initial indices for objects
+        start_index = 0 if only_rbf else len(self.PHI_OBJ_TYPES)
+        self.prop_at_feat_idx = []
+        self.rbf_indices = {}
+        current_index = start_index
+        # Reserve indices in our feature-weight vector for each rbf feature
+        for symbol in sorted(self.COORDS_RBFS.keys()):  # Sort A -> B -> C
+            self.rbf_indices[symbol] = {}
+            for center_coords in self.COORDS_RBFS[symbol]:
+                self.rbf_indices[symbol][center_coords] = current_index
+                current_index += 1
+
+                self.prop_at_feat_idx.append(symbol)
 
     def _create_transition_function(self):
         self._create_transition_function_base()
@@ -409,11 +414,41 @@ class OfficeAreasRBF(GridEnv):
             for i, center_coords in enumerate(self.COORDS_RBFS[symbol]):
                 cy, cx = center_coords
                 rbf_val = gaussian_rbf(x, y, cx, cy, d=self.D_RBFS[symbol][i])
-                rbf_index = self.rbf_indices[center_coords]
+                rbf_index = self.rbf_indices[symbol][center_coords]
 
                 phi[rbf_index] = rbf_val
         return phi
 
+    def remove_redundant_rbfs(self, min_activation_thresh=0.1):
+        for symbol in self.PHI_OBJ_TYPES:
+            print(f"\nChecking symbol: {symbol} for redundant RBFs")
+            coords_list = self.COORDS_RBFS[symbol]
+            distances_list = self.D_RBFS[symbol]
+            symbol_idx = self.PHI_OBJ_TYPES.index(symbol)
+            indices_to_remove = []
+
+            # For each RBF...
+            for i in range(len(coords_list)):
+                cy, cx = coords_list[i]
+                distance = distances_list[i]
+
+                # Collect the activations over its exit states
+                activations = []
+                for exit_state in self.exit_states[symbol_idx]:
+                    y, x = exit_state
+                    rbf_val = gaussian_rbf(x, y, cx, cy, d=distance)
+                    activations.append(rbf_val)
+
+                max_activation = max(activations)
+                if max_activation < min_activation_thresh:
+                    indices_to_remove.append(i)
+                    print(f"  Removing RBF at index {i} with coords {(cy, cx)} — max activation: {max_activation:.4f}")
+
+            filtered_coords = [coords for i, coords in enumerate(coords_list) if i not in indices_to_remove]
+            filtered_distances = [dist for i, dist in enumerate(distances_list) if i not in indices_to_remove]
+            print(f"  Total removed for '{symbol}': {len(indices_to_remove)} out of {len(coords_list)}")
+            self.COORDS_RBFS[symbol] = filtered_coords
+            self.D_RBFS[symbol] = filtered_distances
 
 class Delivery(GridEnv):
     MAP = np.array([['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],

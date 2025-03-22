@@ -166,7 +166,7 @@ class SFFSAValueIterationRBFCentersOnly:
                     proposition = proposition[0]
 
                     rbf_centers = self.env.env.COORDS_RBFS[proposition]
-                    rbf_weight_indices = [self.env.env.rbf_indices[center] for center in rbf_centers]
+                    rbf_weight_indices = [self.env.env.rbf_indices[proposition][center] for center in rbf_centers]
 
                     if self.fsa.is_terminal(v):
                         # If the transition is terminal we get a w of 1 for each proposition that enables this

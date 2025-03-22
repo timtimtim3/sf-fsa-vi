@@ -2,40 +2,36 @@ from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional, Union
 import numpy as np
 import re
+import math
 
 
-def create_rbf_grid(x_min, x_max, y_min, y_max, phi_obj_types, x_feat_count=4, y_feat_count=4, d_rbfs=4):
+def create_rbf_grid(x_min, x_max, y_min, y_max, phi_obj_types, x_feat_count=4, y_feat_count=4, d_rbfs=4,
+                    round_to_integers=True, start_at_extremes=True):
     x_dist = abs(x_min - x_max)
     y_dist = abs(y_min - y_max)
-    dist_between_feat_x = x_dist / (x_feat_count + 1)
-    dist_between_feat_y = y_dist / (y_feat_count + 1)
+    if start_at_extremes:
+        dist_between_feat_x = x_dist / (x_feat_count - 1)
+        dist_between_feat_y = y_dist / (y_feat_count - 1)
+        start_idx = 0
+    else:
+        dist_between_feat_x = x_dist / (x_feat_count + 1)
+        dist_between_feat_y = y_dist / (y_feat_count + 1)
+        start_idx = 1
 
     coordinates = []
-    for i in range(1, y_feat_count + 1):
-        for j in range(1, x_feat_count + 1):
+    for i in range(start_idx, y_feat_count + start_idx):
+        for j in range(start_idx, x_feat_count + start_idx):
             curr_y = y_min + i * dist_between_feat_y
             curr_x = x_min + j * dist_between_feat_x
+            if round_to_integers:
+                curr_x = int(round(curr_x))
+                curr_y = int(round(curr_y))
             coordinates.append((curr_y, curr_x))
 
     all_d_rbfs = [d_rbfs for _ in range(len(coordinates))]
     coords_rbfs = {symbol: coordinates for symbol in phi_obj_types}
     d_rbfs_dict = {symbol: all_d_rbfs for symbol in phi_obj_types}
     return coords_rbfs, d_rbfs_dict
-
-
-# def remove_redundant_rbfs(coords_rbfs, d_rbfs):
-#     # Assuming all symbols have the same rbf grids
-#     some_symbol = coords_rbfs
-#
-#     coords_list = coords_rbfs[some_symbol]
-#     distances_list = d_rbfs[some_symbol]
-#
-#     for i in range(len(coords_list)):
-#         cy, cx = coords_list[i]
-#         distance = distances_list[i]
-#
-#         rbf_val = gaussian_rbf(x, y, cx, cy, d=distance)
-#     pass
 
 
 @dataclass
@@ -86,7 +82,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
             kwargs = {"x_feat_count": self.X_FEAT_COUNT, "y_feat_count": self.Y_FEAT_COUNT, "d_rbfs": self.GRID_D_RBFS}
             kwargs_not_none = {key: value for key, value in kwargs.items() if value is not None}
 
-            self.COORDS_RBFS, self.D_RBFS = create_rbf_grid(0, len(self.MAP[0]), 0, len(self.MAP),
+            self.COORDS_RBFS, self.D_RBFS = create_rbf_grid(0, len(self.MAP[0]) - 1, 0, len(self.MAP) - 1,
                                                             self.PHI_OBJ_TYPES, **kwargs_not_none)
 
     def _validate_manual_rbfs(self):
