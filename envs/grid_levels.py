@@ -52,6 +52,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
     X_FEAT_COUNT: Optional[int] = None
     Y_FEAT_COUNT: Optional[int] = None
     GRID_D_RBFS: Optional[Union[int, float]] = None
+    DELETE_REDUNDANT_RBFS: Optional[bool] = None
 
     # cut_out_redundant_feat = False,
     # cut_out_min_activation = 0.1
@@ -191,6 +192,30 @@ office_areas = LevelDataOfficeAreas(
     }
 )
 
+office_areas_simple = LevelDataOfficeAreas(
+    MAP=np.array([
+        [' ', ' ', ' ', 'B', ' ', 'X', 'C', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', '_'],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
+)
+
 office_areas_rbf = LevelDataOfficeAreasRBF(
     MAP=office_areas.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
@@ -234,15 +259,42 @@ office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
+office_areas_rbf_from_map_favorable = LevelDataOfficeAreasRBF(
+    MAP=office_areas.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    RBF_MAP=np.array([
+        [' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF_1', ' ', ' ', ' ', ' ', ' ', '_'],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B_RBF_4', 'B', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', 'A', 'A_RBF_1', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B_RBF_4', 'B', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B_RBF_4', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    MAP_DEFAULT_D_RBFS=1,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
+)
+
 office_areas_rbf_grids = LevelDataOfficeAreasRBF(
     MAP=office_areas.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
     RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
     CREATE_RBF_GRID=True,
-    X_FEAT_COUNT=4,
-    Y_FEAT_COUNT=4,
-    GRID_D_RBFS=4
+    X_FEAT_COUNT=3,
+    Y_FEAT_COUNT=3,
+    GRID_D_RBFS=4,
+    DELETE_REDUNDANT_RBFS=True
 )
 
 office_areas_rbf_semi_circle = LevelDataOfficeAreasRBF(
@@ -299,5 +351,7 @@ LEVELS = {
     "office_areas_rbf": office_areas_rbf,
     "office_areas_rbf_from_map": office_areas_rbf_from_map,
     "office_areas_rbf_grids": office_areas_rbf_grids,
-    "office_areas_rbf_semi_circle": office_areas_rbf_semi_circle
+    "office_areas_rbf_semi_circle": office_areas_rbf_semi_circle,
+    "office_areas_simple": office_areas_simple,
+    "office_areas_rbf_from_map_favorable": office_areas_rbf_from_map_favorable
 }

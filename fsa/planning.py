@@ -68,11 +68,10 @@ class SFFSAValueIteration:
                             e = exit_states[idx]  # TODO: This is now a set in my officeAreas case
 
                             if isinstance(e, set):
-                                q_vals = []
                                 for exit_state in e:
+                                    feat_idx = self.env.env.feat_indices[exit_state]
                                     q_val_e = np.dot(self.gpi.max_q(exit_state, W[vidx]), W[vidx])
-                                    q_vals.append(q_val_e)
-                                w[idx] = np.mean(q_vals)  # Take the mean as a temporary solution
+                                    w[feat_idx] = q_val_e
                             else:
                                 w[idx] = np.dot(self.gpi.max_q(e, W[vidx]), W[vidx])  # Assign to each goal/predicate in w
                                 # the maximum Q-value we can get in its corresponding exit state (over policies and actions)

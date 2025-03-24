@@ -326,8 +326,10 @@ class OfficeAreas(GridEnv):
         self._create_coord_mapping()
         self._create_transition_function()
 
+        feat_indices = {}
         exit_states = {}
-        for s in self.object_ids:
+        idx = 0
+        for s in self.object_ids.keys():
             symbol = self.MAP[s]
             key = self.PHI_OBJ_TYPES.index(symbol)
 
@@ -335,8 +337,23 @@ class OfficeAreas(GridEnv):
                 exit_states[key] = {s}  # Initialize with a set containing s
             else:
                 exit_states[key].add(s)  # Add new coordinate to the existing set
-
+            feat_indices[s] = idx
+            idx += 1
         self.exit_states = exit_states
+        self.feat_indices = feat_indices
+
+    def features(self, state, action, next_state):
+        s1 = next_state
+        nc = self.feat_dim
+        phi = np.zeros(nc, dtype=np.float32)
+        if s1 in self.object_ids.keys():
+            feat_idx = self.feat_indices[s1]
+            phi[feat_idx] = 1.
+        return phi
+
+    @property
+    def feat_dim(self):
+        return len(self.object_ids)
 
     def _create_transition_function(self):
         self._create_transition_function_base()
@@ -344,7 +361,7 @@ class OfficeAreas(GridEnv):
 
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
-                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=True):
+                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -356,6 +373,8 @@ class OfficeAreasRBF(GridEnv):
         self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
         self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
         self.only_rbf = only_rbf
+        self.delete_redundant_rbfs = level.DELETE_REDUNDANT_RBFS if level.DELETE_REDUNDANT_RBFS is not None else (
+            delete_redundant_rbfs)
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start, init_w=False)
@@ -373,7 +392,7 @@ class OfficeAreasRBF(GridEnv):
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
 
-        if delete_redundant_rbfs:
+        if self.delete_redundant_rbfs:
             self.remove_redundant_rbfs(min_activation_thresh=min_activation_thresh)
 
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}

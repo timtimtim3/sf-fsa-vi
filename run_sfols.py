@@ -1,3 +1,4 @@
+import importlib
 import json
 
 from sfols.rl.utils.utils import policy_eval_exact
@@ -26,6 +27,7 @@ EVAL_EPISODES = 20
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    value_iter_type = cfg.get("value_iter_type", None)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -60,9 +62,23 @@ def main(cfg: DictConfig) -> None:
     train_env = gym.make(env_name, **train_env_kwargs)
     eval_env = gym.make(env_name, **eval_env_kwargs)
 
-    if train_env.only_rbf:
-        from fsa.planning import SFFSAValueIterationMean as ValueIteration
+    psis_are_augmented = False if value_iter_type is None or "augmented" not in value_iter_type.lower() else True
+    if value_iter_type:
+        # Construct the full module path
+        module_name = "fsa.planning"
+        class_name = value_iter_type  # The string should match the class name
+
+        # Dynamically import the module
+        module = importlib.import_module(module_name)
+
+        # Get the class from the module
+        ValueIteration = getattr(module, class_name)
+        print(f"Using {value_iter_type}")
+    elif hasattr(train_env, "only_rbf") and train_env.only_rbf:
+        print("Defaulting to SFFSAValueIterationAugmented")
+        from fsa.planning import SFFSAValueIterationAugmented as ValueIteration
     else:
+        print("Defaulting to SFFSAValueIteration")
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
@@ -76,6 +92,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
+                    psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint)
 
     # m = number of predicates
@@ -91,6 +108,8 @@ def main(cfg: DictConfig) -> None:
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
         plot_all_rbfs(rbf_data, grid_size, train_env)
+    else:
+        rbf_data = None
 
     for ols_iter in range(cfg.max_iter_ols):
         print(f"ols_iter: {ols_iter}")

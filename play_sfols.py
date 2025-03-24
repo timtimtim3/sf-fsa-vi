@@ -98,7 +98,7 @@ def main(cfg: DictConfig) -> None:
     train_env = gym.make(env_name, **train_env_kwargs)
     eval_env = gym.make(env_name, **eval_env_kwargs)
 
-    psis_are_augmented = True if "augmented" in value_iter_type.lower() else False
+    psis_are_augmented = False if value_iter_type is None or "augmented" not in value_iter_type.lower() else True
     if value_iter_type:
         # Construct the full module path
         module_name = "fsa.planning"
@@ -109,9 +109,12 @@ def main(cfg: DictConfig) -> None:
 
         # Get the class from the module
         ValueIteration = getattr(module, class_name)
-    elif train_env.only_rbf:
+        print(f"Using {value_iter_type}")
+    elif hasattr(train_env, "only_rbf") and train_env.only_rbf:
+        print("Defaulting to SFFSAValueIterationAugmented")
         from fsa.planning import SFFSAValueIterationAugmented as ValueIteration
     else:
+        print("Defaulting to SFFSAValueIteration")
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
@@ -147,8 +150,9 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        if plot:
-            plot_all_rbfs(rbf_data, grid_size, train_env)
+        plot_all_rbfs(rbf_data, grid_size, train_env)
+    else:
+        rbf_data = None
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
@@ -198,13 +202,13 @@ def main(cfg: DictConfig) -> None:
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))
 
-    # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True)
+    # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
     # all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
     #     gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
     #                          feat_dim=feat_dim, gamma=gamma, render=False, sleep_time=0.1))
     # matrix = np.column_stack((all_gamma_t_q_values, all_max_q, all_gamma_t_v_values, all_v))
     # print(gamma)
-    # print(matrix)
+    # print(np.round(matrix, 3))
 
     # Enable this to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
