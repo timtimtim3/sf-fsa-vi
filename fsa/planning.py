@@ -475,7 +475,8 @@ class SFFSAValueIterationAugmented:
             self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
 
         for policy in self.gpi.policies:
-            policy.set_augmented_psi_table(self.n_fsa_states, self.feat_dim, self.indicator_edge_has_proposition)
+            policy.set_augmented_psi_table(self.n_fsa_states, self.feat_dim, self.indicator_edge_has_proposition,
+                                           self.env.env.coords_to_state.keys())
 
     def traverse(self,
                  weights=None,
@@ -503,8 +504,8 @@ class SFFSAValueIterationAugmented:
 
                 for i, exit_state in enumerate(self.all_exit_states):
                     if not self.fsa.is_terminal(u):
-                        action, policy_index, q_target = self.gpi.eval(exit_state, W, uidx=uidx, return_q_val=True,
-                                                                       return_policy_index=True)
+                        action, policy_index, q_target = self.gpi.eval_planning(exit_state, W, uidx=uidx,
+                                                                                return_q_val=True, return_policy_index=True)
                         # all_policy_q_vals = []
                         # for policy in self.gpi.policies:
                         #     psis = policy.q_table[exit_state]

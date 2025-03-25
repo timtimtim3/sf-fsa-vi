@@ -112,6 +112,7 @@ def main(cfg: DictConfig) -> None:
         print(f"Using {value_iter_type}")
     elif hasattr(train_env, "only_rbf") and train_env.only_rbf:
         print("Defaulting to SFFSAValueIterationAugmented")
+        psis_are_augmented = True
         from fsa.planning import SFFSAValueIterationAugmented as ValueIteration
     else:
         print("Defaulting to SFFSAValueIteration")
@@ -150,7 +151,7 @@ def main(cfg: DictConfig) -> None:
 
     if "RBF" in env_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size, train_env)
+        plot_all_rbfs(rbf_data, grid_size, train_env, skip_non_goal=False)
     else:
         rbf_data = None
 
