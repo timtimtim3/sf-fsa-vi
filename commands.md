@@ -1,5 +1,4 @@
-# Run commands go here...
-
+# Run commands...
 ## Fast runs
 python run_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBFOnly +seed=1001 ols=bigger-epsilon
 python run_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBFOnly +seed=1001 ols=bigger-epsilon algorithm.gamma=0.95
@@ -35,3 +34,10 @@ python run_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBF
 ### Semi-Circle RBFs
 python run_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=officeAreasRBFOnly +seed=1001 ols=bigger-epsilon algorithm.gamma=0.95 env.level_name="office_areas_rbf_semi_circle"
 python play_sfols.py algorithm=sfols-qlearning +fsa_name=SemiCircle-task1 env=officeAreasRBFOnly +seed=1001 env.level_name="office_areas_rbf_semi_circle" +dir_postfix="SemiCircle-eps0.2-gamma0.95-dist4"
+
+### Goals further apart
+python play_sfols.py algorithm=sfols-qlearning +fsa_name=task1 env=officeAreasRBFOnly +seed=1001 +value_iter_type="SFFSAValueIterationAugmented" algorithm.gamma=0.95 env.level_name="office_areas_rbf_goals_apart" +plot=False +dir_postfix="GoalsApart-eps0.2-gamma0.95-dist3"
+
+
+# Visualize env...
+python visualize_env.py env=officeAreasRBFOnly env.level_name="office_areas_rbf_goals_apart"

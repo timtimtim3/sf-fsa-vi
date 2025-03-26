@@ -67,6 +67,23 @@ def load_qtables_from_pickles(policy_dir: str):
     return q_tables
 
 
+def plot_gpi_qvals(w_dict, gpi_agent, train_env, rbf_data, verbose=True):
+    if verbose:
+        print("\nPlotting GPI q-values:")
+    w_arr = np.asarray(list(w_dict.values())).reshape(-1)
+    for (uidx, w) in enumerate(w_dict.values()):
+        if uidx == len(w_dict.keys()) - 1:
+            break
+
+        w_dot = w_arr if gpi_agent.psis_are_augmented else w
+
+        if verbose:
+            print(uidx, np.round(w, 2))
+        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
+        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
+        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     plot = cfg.get("plot", True)
@@ -199,7 +216,6 @@ def main(cfg: DictConfig) -> None:
             "evaluation/time": np.sum(times)
         }
 
-    W_arr = np.asarray(list(W.values())).reshape(-1)
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))
 
@@ -214,17 +230,7 @@ def main(cfg: DictConfig) -> None:
     # Enable this to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
 
-    print("\nPlotting GPI q-values:")
-    for (uidx, w) in enumerate(W.values()):
-        if uidx == len(W.keys()) - 1:
-            break
-
-        w_dot = W_arr if gpi_agent.psis_are_augmented else w
-
-        print(uidx, np.round(w, 2))
-        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
-        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
+    plot_gpi_qvals(W, gpi_agent, train_env, rbf_data)
 
     train_env.close()
     eval_env.close()  # Close the environment when done

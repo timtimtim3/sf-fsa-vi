@@ -9,7 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
 
 from utils.utils import seed_everything 
-
+from play_sfols import plot_gpi_qvals
 import pickle as pkl
 import numpy as np
 import wandb as wb
@@ -218,6 +218,8 @@ def main(cfg: DictConfig) -> None:
         wb.log(log_dict)
 
     acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
+
+    plot_gpi_qvals(W, gpi_agent, train_env, rbf_data)
 
     wb.finish()
 

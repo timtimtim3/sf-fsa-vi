@@ -2,6 +2,6 @@ env_name: "OfficeAreasRBFOnly-v0"
 planning_constraint: null
 restriction: null
 add_obj_to_start: True
-add_empty_to_start: True
+add_empty_to_start: False
 only_rbf: True
 level_name: "office_areas_rbf_from_map"
