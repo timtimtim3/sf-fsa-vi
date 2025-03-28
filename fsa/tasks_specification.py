@@ -23,7 +23,8 @@ def load_fsa(name: str, env):
         init_fun = fsa_office3
     elif name == "DoubleSlit-v0-task1":
         init_fun = fsa_double_slit1
-    elif name == "OfficeAreas-v0-task1" or name == "OfficeAreasRBF-v0-task1" or name == "OfficeAreasRBFOnly-v0-task1":
+    elif name == "OfficeAreas-v0-task1" or name == "OfficeAreasRBF-v0-task1" or name == "OfficeAreasRBFOnly-v0-task1" \
+            or name == "OfficeAreasFeatures-v0-task1":
         init_fun = fsa_officeAreas1
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
         init_fun = fsa_officeAreasSemiCircle1

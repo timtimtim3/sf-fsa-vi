@@ -1,8 +1,9 @@
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional, Union
 import numpy as np
 import re
-import math
+from envs.utils import gaussian_rbf_features, fourier_features
 
 
 def create_rbf_grid(x_min, x_max, y_min, y_max, phi_obj_types, x_feat_count=4, y_feat_count=4, d_rbfs=4,
@@ -53,9 +54,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
     Y_FEAT_COUNT: Optional[int] = None
     GRID_D_RBFS: Optional[Union[int, float]] = None
     DELETE_REDUNDANT_RBFS: Optional[bool] = None
-
-    # cut_out_redundant_feat = False,
-    # cut_out_min_activation = 0.1
+    FEAT_FN = staticmethod(gaussian_rbf_features)
 
     def __post_init__(self):
         has_rbf_map = self.RBF_MAP is not None
@@ -85,6 +84,17 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
 
             self.COORDS_RBFS, self.D_RBFS = create_rbf_grid(0, len(self.MAP[0]) - 1, 0, len(self.MAP) - 1,
                                                             self.PHI_OBJ_TYPES, **kwargs_not_none)
+
+        self.FEAT_DATA = {}
+        for symbol in self.COORDS_RBFS.keys():
+            coords = self.COORDS_RBFS[symbol]
+            distances = self.D_RBFS[symbol]
+
+            feat_data_list = []
+            for coord, distance in zip(coords, distances):
+                feat_data = (coord[0], coord[1], distance)
+                feat_data_list.append(feat_data)
+            self.FEAT_DATA[symbol] = tuple(feat_data_list)
 
     def _validate_manual_rbfs(self):
         """
@@ -152,6 +162,15 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
                         f"Incorrect RBF placement at ({row}, {col}): expected '{phi_symbol}' in MAP, "
                         f"but found '{self.MAP[row, col]}'."
                     )
+
+
+@dataclass
+class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
+    FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int]]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+    FEAT_FN = staticmethod(fourier_features)
+
+    def __post_init__(self):
+        self.FEAT_DATA = {symbol: deepcopy(self.FREQUENCY_PAIRS) for symbol in self.PHI_OBJ_TYPES}
 
 
 office_areas = LevelDataOfficeAreas(
@@ -231,6 +250,14 @@ office_areas_rbf = LevelDataOfficeAreasRBF(
         'C': [1]
     },
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
+)
+
+office_areas_fourier = LevelDataOfficeAreasFourier(
+    MAP=office_areas.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
 )
 
 office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
@@ -407,6 +434,14 @@ office_areas_rbf_fat_small = LevelDataOfficeAreasRBF(
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
+office_areas_fourier_fat_small = LevelDataOfficeAreasFourier(
+    MAP=office_areas_rbf_fat_small.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+)
+
 office_areas_rbf_fat = LevelDataOfficeAreasRBF(
     MAP=np.array([
         [' ', ' ', ' ', ' ', ' ', ' ', 'C', ' ', ' ', ' ', ' ', ' ', ' '],
@@ -455,5 +490,7 @@ LEVELS = {
     "office_areas_rbf_from_map_favorable": office_areas_rbf_from_map_favorable,
     "office_areas_rbf_goals_apart": office_areas_rbf_goals_apart,
     "office_areas_rbf_fat_small": office_areas_rbf_fat_small,
-    "office_areas_rbf_fat": office_areas_rbf_fat
+    "office_areas_rbf_fat": office_areas_rbf_fat,
+    "office_areas_fourier_fat_small": office_areas_fourier_fat_small,
+    "office_areas_fourier": office_areas_fourier
 }

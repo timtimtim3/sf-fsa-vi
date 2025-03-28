@@ -27,6 +27,45 @@ def gaussian_rbf(x, y, cx, cy, d=1):
     return np.exp(-distance_squared / d ** 2)
 
 
+def gaussian_rbf_features(x, y, feat_data=((0, 0, 4), (1, 1, 4))):
+    """
+    Generate combined RBF features.
+
+    Parameters:
+        x (float): X-coordinate (can also be np.array for batch).
+        y (float): Y-coordinate (same shape as x).
+        feat_data (tuple of tuples): (cx, cy, distance), e.g. : ((0, 0, 4), (1, 1, 4))
+
+    Returns:
+        np.array: Feature vector of shape (2 * len(directions),) or (..., 2 * len(directions))
+    """
+    feats = []
+    for cx, cy, d in feat_data:
+        val = gaussian_rbf(x, y, cx, cy, d)
+        feats.append(val)
+    return np.array(feats)
+
+
+def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
+    """
+    Generate combined Fourier features using 2D frequency directions.
+
+    Parameters:
+        x (float): X-coordinate (can also be np.array for batch).
+        y (float): Y-coordinate (same shape as x).
+        feat_data (tuple of tuples): Tuple of (fx, fy) frequency pairs.
+
+    Returns:
+        np.array: Feature vector of shape (2 * len(directions),) or (..., 2 * len(directions))
+    """
+    feats = []
+    for fx, fy in feat_data:
+        arg = 2 * np.pi * (fx * x + fy * y)
+        feats.append(np.sin(arg))
+        feats.append(np.cos(arg))
+    return np.array(feats)
+
+
 def compute_q_table(sf_table, w):
     q_table = dict()
     for coords, successor_features in sf_table.items():

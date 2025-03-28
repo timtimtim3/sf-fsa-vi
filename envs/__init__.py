@@ -70,6 +70,19 @@ gym.envs.register(
     max_episode_steps=200,
 )
 
+gym.envs.register(
+    id="OfficeAreasFeatures-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeatures",
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasFeaturesEval-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeatures",
+    kwargs={'add_obj_to_start': False, 'add_empty_to_start': False},
+    max_episode_steps=200,
+)
+
 # ANCHOR: Delivery environments
 
 gym.envs.register(

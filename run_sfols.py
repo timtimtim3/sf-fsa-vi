@@ -1,5 +1,6 @@
 import importlib
 import json
+from copy import deepcopy
 
 from sfols.rl.utils.utils import policy_eval_exact
 from sfols.rl.successor_features.gpi import GPI
@@ -47,15 +48,10 @@ def main(cfg: DictConfig) -> None:
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
 
-    # Default to env defaults if not specified
-    train_env_kwargs = {
-        k: v for k, v in {
-            "add_obj_to_start": env_params.get("add_obj_to_start"),
-            "add_empty_to_start": env_params.get("add_empty_to_start"),
-            "level_name": env_params.get("level_name"),
-            "only_rbf": env_params.get("only_rbf")
-        }.items() if v is not None
-    }
+    train_env_kwargs = deepcopy(env_params)
+    train_env_kwargs.pop("restriction")
+    train_env_kwargs.pop("planning_constraint")
+
     excluded_keys = {"add_obj_to_start", "add_empty_to_start"}
     eval_env_kwargs = {k: v for k, v in train_env_kwargs.items() if k not in excluded_keys}
 

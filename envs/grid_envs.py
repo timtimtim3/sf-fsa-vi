@@ -5,7 +5,7 @@ import random
 import gym
 from gym.spaces import Discrete, Box
 from abc import ABC, abstractmethod
-from envs.utils import gaussian_rbf
+from envs.utils import gaussian_rbf, fourier_features
 from envs.grid_levels import LEVELS
 
 
@@ -311,7 +311,8 @@ class Office(GridEnv):
 
 
 class OfficeAreas(GridEnv):
-    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, level_name="office_areas"):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
+                 level_name="office_areas"):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -359,9 +360,77 @@ class OfficeAreas(GridEnv):
         self._create_transition_function_base()
 
 
+class FeatureExtractor:
+    def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
+                 min_activation_thresh=0.1, verbose=True):
+        self._feat_data = feat_data
+        self.feat_fn = feat_fn
+        self.phi_obj_types = phi_obj_types
+
+        if remove_redundant_features:
+            if exit_states is None:
+                raise ValueError("Exit states cannot be None if remove_redundant_features is set to True")
+            self._remove_redundant_features(exit_states, min_activation_thresh, verbose)
+
+        self.feat_dim = sum([len(feat_data) for feat_data in self._feat_data.values()])
+        self.feat_indices = {}
+
+        self.prop_at_feat_idx = []
+        self.feat_indices = {}
+        current_index = 0
+        for symbol in sorted(self._feat_data.keys()):  # Sort A -> B -> C
+            feat_indices = []
+            for _ in self._feat_data[symbol]:
+                self.prop_at_feat_idx.append(symbol)
+                feat_indices.append(current_index)
+                current_index += 1
+
+            self.feat_indices[symbol] = np.array(feat_indices)
+        self.prop_at_feat_idx = tuple(self.prop_at_feat_idx)
+
+    def _remove_redundant_features(self, exit_states, min_activation_thresh=0.1, verbose=False):
+        for symbol in self.phi_obj_types:
+            symbol_idx = self.phi_obj_types.index(symbol)
+            feat_data = self._feat_data[symbol]
+            exit_states_symbol = exit_states[symbol_idx]
+
+            feat_matrix = np.zeros((len(exit_states_symbol), len(feat_data)))
+            for i, exit_state in enumerate(exit_states_symbol):
+                y, x = exit_state
+                feat_vec = self.feat_fn(x, y, feat_data=feat_data)
+                feat_matrix[i, :] = feat_vec
+
+            # Get max activation over exit states for each feature
+            max_activation_feat = np.max(feat_matrix, axis=0)
+            indices_feat_to_remove = np.where(max_activation_feat < min_activation_thresh)[0]
+
+            if verbose:
+                print(f"Removing {len(indices_feat_to_remove)} out of {len(feat_data)} features for symbol {symbol} "
+                      f"at {indices_feat_to_remove}")
+
+            filtered_feat_data = tuple([feat for i, feat in enumerate(feat_data) if i not in indices_feat_to_remove])
+            self._feat_data[symbol] = filtered_feat_data
+
+    def features(self, env, state, action, next_state):
+        phi = np.zeros(self.feat_dim, dtype=np.float32)
+
+        # Only assign non-zero values if the next state is a goal state
+        is_goal_state = env.is_goal_state(next_state)
+
+        if is_goal_state:
+            symbol = env.get_symbol_at_state(next_state)
+            y, x = next_state
+
+            feat_vec = self.feat_fn(x, y, self._feat_data[symbol])
+            feat_indices = self.feat_indices[symbol]
+            phi[feat_indices] = feat_vec
+        return phi
+
+
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
-                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False):
+                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False,
+                 terminate_on_enter_different_area=False):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -375,6 +444,7 @@ class OfficeAreasRBF(GridEnv):
         self.only_rbf = only_rbf
         self.delete_redundant_rbfs = level.DELETE_REDUNDANT_RBFS if level.DELETE_REDUNDANT_RBFS is not None else (
             delete_redundant_rbfs)
+        self.terminate_on_enter_different_area = terminate_on_enter_different_area
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start, init_w=False)
@@ -415,6 +485,23 @@ class OfficeAreasRBF(GridEnv):
 
     def _create_transition_function(self):
         self._create_transition_function_base()
+
+    def is_done(self, state, action, next_state):
+        if self.terminate_on_enter_different_area:
+            # If we don't enter an Area, we do not terminate
+            if next_state not in self.object_ids:
+                return False
+
+            # If we enter an Area, we terminate if we came from a different Area (or empty space)
+            last_symbol = self.MAP[state]
+            next_symbol = self.MAP[next_state]
+
+            # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
+            if last_symbol == next_symbol:
+                return False
+            return True  # We terminate if we came from a different Area (or empty space)
+        else:
+            return next_state in self.object_ids
 
     @property
     def feat_dim(self):
@@ -468,6 +555,81 @@ class OfficeAreasRBF(GridEnv):
             print(f"  Total removed for '{symbol}': {len(indices_to_remove)} out of {len(coords_list)}")
             self.COORDS_RBFS[symbol] = filtered_coords
             self.D_RBFS[symbol] = filtered_distances
+
+
+class OfficeAreasFeatures(GridEnv):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
+                 level_name="office_areas_fourier", min_activation_thresh=0.1, remove_redundant_features=False,
+                 terminate_on_enter_different_area=False):
+        # Load level data from the external LEVELS dictionary.
+        level = LEVELS[level_name]
+
+        # Set level-specific attributes.
+        self.MAP = deepcopy(level.MAP)
+        self.PHI_OBJ_TYPES = deepcopy(level.PHI_OBJ_TYPES)
+        self.FEAT_DATA = deepcopy(level.FEAT_DATA)
+        self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
+        self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
+        self.FEAT_FN = level.FEAT_FN
+
+        self.terminate_on_enter_different_area = terminate_on_enter_different_area
+
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
+                         add_empty_to_start=add_empty_to_start, init_w=False)
+        self._create_coord_mapping()
+        self._create_transition_function()
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            key = self.PHI_OBJ_TYPES.index(symbol)
+
+            if key not in exit_states:
+                exit_states[key] = {s}  # Initialize with a set containing s
+            else:
+                exit_states[key].add(s)  # Add new coordinate to the existing set
+        self.exit_states = exit_states
+
+        self.feature_extractor = (
+            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
+                             remove_redundant_features=remove_redundant_features,
+                             min_activation_thresh=min_activation_thresh, verbose=True))
+
+        self.w = np.zeros(self.feat_dim)
+
+    def _create_transition_function(self):
+        self._create_transition_function_base()
+
+    def is_done(self, state, action, next_state):
+        if self.terminate_on_enter_different_area:
+            # If we don't enter an Area, we do not terminate
+            if next_state not in self.object_ids:
+                return False
+
+            # If we enter an Area, we terminate if we came from a different Area (or empty space)
+            last_symbol = self.MAP[state]
+            next_symbol = self.MAP[next_state]
+
+            # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
+            if last_symbol == next_symbol:
+                return False
+            return True  # We terminate if we came from a different Area (or empty space)
+        else:
+            return next_state in self.object_ids
+
+    @property
+    def feat_dim(self):
+        return self.feature_extractor.feat_dim
+
+    def features(self, state, action, next_state):
+        return self.feature_extractor.features(self, state, action, next_state)
+
+    def is_goal_state(self, state):
+        return state in self.object_ids
+
+    def get_symbol_at_state(self, state):
+        return self.MAP[state]
+
 
 class Delivery(GridEnv):
     MAP = np.array([['O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O', ' ', 'O', 'O', 'O'],
