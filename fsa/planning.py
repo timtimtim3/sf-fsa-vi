@@ -528,7 +528,8 @@ class SFFSAValueIterationAugmented:
                     else:
                         q_targets.append(1)
 
-                    phi = self.env.env.features(state=None, action=None, next_state=exit_state)
+                    phi = self.env.env.features(state=None, action=None if (not hasattr(self.env.env, "terminate_action") or not self.env.env.terminate_action) else self.env.env.TERMINATE,
+                                                next_state=exit_state)
                     augmented_phi = get_augmented_phi(phi, uidx, self.n_fsa_states, self.feat_dim)
                     augmented_phis[i, :] = augmented_phi
 

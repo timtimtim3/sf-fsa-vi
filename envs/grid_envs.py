@@ -12,7 +12,7 @@ from envs.grid_levels import LEVELS
 class GridEnv(ABC, gym.Env):
     metadata = {'render.modes': ['human'],
                 'video.frames_per_second': 20}
-    LEFT, UP, RIGHT, DOWN = 0, 1, 2, 3
+    LEFT, UP, RIGHT, DOWN, TERMINATE = 0, 1, 2, 3, 4
 
     MAP = None
     PHI_OBJ_TYPES = None
@@ -26,7 +26,7 @@ class GridEnv(ABC, gym.Env):
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
 
-    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True):
+    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False):
         """
         Creates a new instance of the coffee environment.
 
@@ -40,6 +40,7 @@ class GridEnv(ABC, gym.Env):
         self.initial = []
         self.occupied = set()
         self.object_ids = dict()
+        self.terminate_action = terminate_action
 
         for c in range(self.width):
             for r in range(self.height):
@@ -57,7 +58,7 @@ class GridEnv(ABC, gym.Env):
 
         if init_w:
             self.w = np.zeros(self.feat_dim)
-        self.action_space = Discrete(4)
+        self.action_space = Discrete(4 if not self.terminate_action else 5)
         self.observation_space = Box(low=np.zeros(
             2), high=np.ones(2), dtype=np.float32)
         self.seed()
@@ -124,10 +125,8 @@ class GridEnv(ABC, gym.Env):
 
         return self.state_to_array(self.state)
 
-    def base_movement(self, coords, action):
-
-        row, col = coords
-
+    def do_action(self, state, action):
+        row, col = state
         if action == self.LEFT:
             col -= 1
         elif action == self.UP:
@@ -136,16 +135,26 @@ class GridEnv(ABC, gym.Env):
             col += 1
         elif action == self.DOWN:
             row += 1
+        elif action == self.TERMINATE:
+            pass
         else:
             raise Exception('bad action {}'.format(action))
-        if col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied:  # no move
-            return coords
-        else:
-            return (row, col)
+        return row, col
+
+    def base_movement(self, coords, action):
+        new_coords = self.do_action(coords, action)
+        if self.is_state_valid(new_coords):
+            return new_coords
+        return coords
+
+    def is_state_valid(self, state):
+        row, col = state
+        return not (col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied)
 
     def step(self, action):
         # Movement
         old_state = self.state
+        self.old_state = old_state
         old_state_index = self.coords_to_state[old_state]
         new_state_index = np.random.choice(a=self.s_dim, p=self.P[old_state_index, action])
         new_state = self.state_to_coords[new_state_index]
@@ -153,11 +162,30 @@ class GridEnv(ABC, gym.Env):
         self.state = new_state
 
         # Determine features and rewards
+        done = self.is_done(old_state, action, new_state)
         phi = self.features(old_state, action, new_state)
         reward = -1  #np.dot(phi, self.w)
-        done = self.is_done(old_state, action, new_state)
         prop = self.MAP[new_state]
         return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
+
+    def get_reward(self, action, phi, w):
+        # If the env doesn't allow a terminate action, we return the regular reward
+        if not self.terminate_action:
+            return np.dot(phi, w)
+
+        if action == self.TERMINATE:
+            # Give 0 reward if the agent selects the terminate action in a non-goal state
+            if self.old_state not in self.object_ids:
+                return 0
+
+         # If the agent did not select the terminal action but the state didn't change,
+        # this means an invalid move was made
+        if action != self.TERMINATE and self.old_state == self.state:
+            return 0
+
+        # In all other cases the agent selected the terminate action in a goal-state or the agent did not select
+        # the terminate action, in both cases we return the regular reward
+        return np.dot(phi, w)
 
     # =========================================================================== #
     # STATE ENCODING FOR DEEP LEARNING                                            #
@@ -430,7 +458,7 @@ class FeatureExtractor:
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
                  level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False,
-                 terminate_on_enter_different_area=False):
+                 terminate_action=False):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -444,10 +472,9 @@ class OfficeAreasRBF(GridEnv):
         self.only_rbf = only_rbf
         self.delete_redundant_rbfs = level.DELETE_REDUNDANT_RBFS if level.DELETE_REDUNDANT_RBFS is not None else (
             delete_redundant_rbfs)
-        self.terminate_on_enter_different_area = terminate_on_enter_different_area
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
-                         add_empty_to_start=add_empty_to_start, init_w=False)
+                         add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action)
         self._create_coord_mapping()
         self._create_transition_function()
 
@@ -487,21 +514,32 @@ class OfficeAreasRBF(GridEnv):
         self._create_transition_function_base()
 
     def is_done(self, state, action, next_state):
-        if self.terminate_on_enter_different_area:
-            # If we don't enter an Area, we do not terminate
-            if next_state not in self.object_ids:
-                return False
-
-            # If we enter an Area, we terminate if we came from a different Area (or empty space)
-            last_symbol = self.MAP[state]
-            next_symbol = self.MAP[next_state]
-
-            # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
-            if last_symbol == next_symbol:
-                return False
-            return True  # We terminate if we came from a different Area (or empty space)
+        if self.terminate_action:
+            if action == self.TERMINATE:
+                return True
+            return False
         else:
             return next_state in self.object_ids
+
+    # def is_done(self, state, action, next_state):
+    #     if self.terminate_action:
+    #         # If we don't enter an Area, we do not terminate
+    #         if next_state not in self.object_ids:
+    #             return False
+    #
+    #         # If we enter an Area, we terminate if we came from a different Area (or empty space)
+    #         last_symbol = self.MAP[state]
+    #         next_symbol = self.MAP[next_state]
+    #
+    #         # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
+    #         if last_symbol == next_symbol:
+    #             # Except if the agent selected the Terminate action
+    #             if action == self.TERMINATE:
+    #                 return True
+    #             return False
+    #         return True  # We terminate if we came from a different Area (or empty space)
+    #     else:
+    #         return next_state in self.object_ids
 
     @property
     def feat_dim(self):
@@ -510,6 +548,9 @@ class OfficeAreasRBF(GridEnv):
 
     def features(self, state, action, next_state):
         phi = np.zeros(self.feat_dim, dtype=np.float32)
+        if self.terminate_action and not self.is_done(state, action, next_state):
+            return phi
+
         if next_state in self.object_ids:
             y, x = next_state
             symbol = self.MAP[y, x]
@@ -594,6 +635,7 @@ class OfficeAreasFeatures(GridEnv):
             FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
                              remove_redundant_features=remove_redundant_features,
                              min_activation_thresh=min_activation_thresh, verbose=True))
+        self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
 
         self.w = np.zeros(self.feat_dim)
 

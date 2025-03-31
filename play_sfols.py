@@ -16,7 +16,7 @@ import gym
 import wandb
 import matplotlib.pyplot as plt
 from envs.utils import get_rbf_activation_data
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals
 import pickle as pkl
 
 EVAL_EPISODES = 20
@@ -176,6 +176,8 @@ def main(cfg: DictConfig) -> None:
         print(i, np.round(w, 2))
         if plot:
             plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
+            # plot_maxqvals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
+            # row 5 col 3, 4
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
