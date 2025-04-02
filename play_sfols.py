@@ -96,6 +96,7 @@ def main(cfg: DictConfig) -> None:
     # Create the train and eval environments
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
+    env_level_name = env_params["level_name"]
 
     alg_params = dict(cfg.algorithm)
     gamma = alg_params.pop("gamma")
@@ -105,7 +106,7 @@ def main(cfg: DictConfig) -> None:
     train_env_kwargs.pop("restriction")
     train_env_kwargs.pop("planning_constraint")
 
-    excluded_keys = {"add_obj_to_start", "add_empty_to_start"}
+    excluded_keys = {"add_obj_to_start", "add_empty_to_start", "reset_probability_goals"}
     eval_env_kwargs = {k: v for k, v in train_env_kwargs.items() if k not in excluded_keys}
 
     train_env = gym.make(env_name, **train_env_kwargs)
@@ -162,7 +163,7 @@ def main(cfg: DictConfig) -> None:
 
     gpi_agent.load_policies(policy_dir, q_tables)
 
-    if "RBF" in env_name:
+    if "rbf" in env_level_name:
         rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
         plot_all_rbfs(rbf_data, grid_size, train_env, skip_non_goal=False)
     else:

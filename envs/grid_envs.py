@@ -26,7 +26,8 @@ class GridEnv(ABC, gym.Env):
     [1] Icarte, RT, et al. "Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning".
     """
 
-    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False):
+    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False,
+                reset_probability_goals=None):
         """
         Creates a new instance of the coffee environment.
 
@@ -41,6 +42,8 @@ class GridEnv(ABC, gym.Env):
         self.occupied = set()
         self.object_ids = dict()
         self.terminate_action = terminate_action
+        self.reset_probability_goals = reset_probability_goals
+        self.initial_is_goal = []
 
         for c in range(self.width):
             for r in range(self.height):
@@ -49,12 +52,34 @@ class GridEnv(ABC, gym.Env):
                     continue
                 elif self.MAP[r, c] == '_':
                     self.initial.append((r, c))
+                    self.initial_is_goal.append(False)
                 elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
                     self.object_ids[(r, c)] = len(self.object_ids)
                     if add_obj_to_start and self.MAP[r, c] != "O":
                         self.initial.append((r, c))
+                        self.initial_is_goal.append(True)
                 elif self.MAP[r, c] == ' ' and add_empty_to_start:
                     self.initial.append((r, c))
+                    self.initial_is_goal.append(False)
+
+        if self.reset_probability_goals is not None:
+            mask = np.array(self.initial_is_goal)
+            num_goal = np.sum(mask)
+            num_non_goal = len(mask) - num_goal
+
+            if num_goal == 0 or num_non_goal == 0:
+                raise ValueError("Must have both goal and non-goal states when using reset_probability_goals.")
+
+            goal_mass = self.reset_probability_goals
+            non_goal_mass = 1.0 - goal_mass
+
+            probs = np.zeros(len(mask), dtype=np.float32)
+            probs[mask] = goal_mass / num_goal
+            probs[~mask] = non_goal_mass / num_non_goal
+
+            self.init_probabilities = probs
+        else:
+            self.init_probabilities = None
 
         if init_w:
             self.w = np.zeros(self.feat_dim)
@@ -112,6 +137,9 @@ class GridEnv(ABC, gym.Env):
     def reset(self, state=None):
         if state is not None:
             self.state = state
+        elif self.init_probabilities is not None:
+            index = np.random.choice(len(self.initial), p=self.init_probabilities)
+            self.state = self.initial[index]
         else:
             self.state = random.choice(self.initial)
         return self.state_to_array(self.state)
@@ -284,6 +312,19 @@ class GridEnv(ABC, gym.Env):
 
     def custom_render(self, square_map: dict[tuple[int, int]]):
         pass
+
+    def get_symbol_at_state(self, state):
+        if state is None:
+            return None
+
+        if isinstance(state, tuple) and len(state) == 2 and all(isinstance(x, int) for x in state):
+            row, col = state
+            if 0 <= row < len(self.MAP) and 0 <= col < len(self.MAP[0]):
+                return self.MAP[row][col]
+            else:
+                raise IndexError(f"State {state} is out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
+
+        raise ValueError(f"Invalid state: {state}. Expected a tuple of two integers or None.")
 
 
 class Office(GridEnv):
@@ -458,7 +499,7 @@ class FeatureExtractor:
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
                  level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False,
-                 terminate_action=False):
+                 terminate_action=False, reset_probability_goals=None):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -474,7 +515,8 @@ class OfficeAreasRBF(GridEnv):
             delete_redundant_rbfs)
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
-                         add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action)
+                         add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action,
+                         reset_probability_goals=reset_probability_goals)
         self._create_coord_mapping()
         self._create_transition_function()
 
@@ -513,33 +555,33 @@ class OfficeAreasRBF(GridEnv):
     def _create_transition_function(self):
         self._create_transition_function_base()
 
-    def is_done(self, state, action, next_state):
-        if self.terminate_action:
-            if action == self.TERMINATE:
-                return True
-            return False
-        else:
-            return next_state in self.object_ids
-
     # def is_done(self, state, action, next_state):
     #     if self.terminate_action:
-    #         # If we don't enter an Area, we do not terminate
-    #         if next_state not in self.object_ids:
-    #             return False
-    #
-    #         # If we enter an Area, we terminate if we came from a different Area (or empty space)
-    #         last_symbol = self.MAP[state]
-    #         next_symbol = self.MAP[next_state]
-    #
-    #         # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
-    #         if last_symbol == next_symbol:
-    #             # Except if the agent selected the Terminate action
-    #             if action == self.TERMINATE:
-    #                 return True
-    #             return False
-    #         return True  # We terminate if we came from a different Area (or empty space)
+    #         if action == self.TERMINATE:
+    #             return True
+    #         return False
     #     else:
     #         return next_state in self.object_ids
+
+    def is_done(self, state, action, next_state):
+        if self.terminate_action:
+            # If we don't enter an Area, we do not terminate
+            if next_state not in self.object_ids:
+                return False
+
+            # If we enter an Area, we terminate if we came from a different Area (or empty space)
+            last_symbol = self.get_symbol_at_state(state)
+            next_symbol = self.get_symbol_at_state(next_state)
+
+            # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
+            if last_symbol == next_symbol:
+                # Except if the agent selected the Terminate action
+                if action == self.TERMINATE:
+                    return True
+                return False
+            return True  # We terminate if we came from a different Area (or empty space)
+        else:
+            return next_state in self.object_ids
 
     @property
     def feat_dim(self):
@@ -668,9 +710,6 @@ class OfficeAreasFeatures(GridEnv):
 
     def is_goal_state(self, state):
         return state in self.object_ids
-
-    def get_symbol_at_state(self, state):
-        return self.MAP[state]
 
 
 class Delivery(GridEnv):
