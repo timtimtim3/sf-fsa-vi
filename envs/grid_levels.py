@@ -168,6 +168,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
 class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
     FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int]]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
     FEAT_FN = staticmethod(fourier_features)
+    NORMALIZE_STATES_FOR_FOURIER = True
 
     def __post_init__(self):
         self.FEAT_DATA = {symbol: deepcopy(self.FREQUENCY_PAIRS) for symbol in self.PHI_OBJ_TYPES}

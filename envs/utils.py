@@ -60,10 +60,30 @@ def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     """
     feats = []
     for fx, fy in feat_data:
-        arg = 2 * np.pi * (fx * x + fy * y)
+        arg = np.pi * (fx * x + fy * y)
         feats.append(np.sin(arg))
         feats.append(np.cos(arg))
     return np.array(feats)
+
+
+def normalize_state(state, low, high):
+    """
+    Normalize a discrete or continuous state into the [0, 1] range.
+
+    Parameters:
+        state (tuple or array-like): The state to normalize, e.g., (y, x).
+        low (array-like): The minimum value for each dimension (same shape as state).
+        high (array-like): The maximum value for each dimension (same shape as state).
+
+    Returns:
+        np.ndarray: A normalized state as a float32 NumPy array with values in [0, 1].
+
+    Notes:
+        - Assumes that each dimension in `state` lies within [low[i], high[i]].
+        - Does not clip out-of-bounds states or check for division by zero. Use a safe
+          version if your bounds may include equal values.
+    """
+    return (np.array(state) - low) / (high - low)
 
 
 def compute_q_table(sf_table, w):

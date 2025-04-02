@@ -1,11 +1,10 @@
 from copy import deepcopy
-
 import numpy as np
 import random
 import gym
-from gym.spaces import Discrete, Box
+from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
-from envs.utils import gaussian_rbf, fourier_features
+from envs.utils import gaussian_rbf, fourier_features, normalize_state
 from envs.grid_levels import LEVELS
 
 
@@ -326,6 +325,31 @@ class GridEnv(ABC, gym.Env):
 
         raise ValueError(f"Invalid state: {state}. Expected a tuple of two integers or None.")
 
+    def get_observation_bounds(self):
+        """
+        Returns the lower and upper bounds of the observation space as NumPy arrays.
+
+        Supports both gym.spaces.MultiDiscrete and gym.spaces.Box.
+
+        Returns:
+            tuple: (low, high), where both are np.ndarray with the same shape as observations.
+
+        Raises:
+            TypeError: If the observation space is not MultiDiscrete or Box.
+        """
+        space = self.observation_space
+
+        if isinstance(space, gym.spaces.MultiDiscrete):
+            low = np.zeros_like(space.nvec, dtype=np.float32)
+            high = (space.nvec - 1).astype(np.float32)
+        elif isinstance(space, gym.spaces.Box):
+            low = space.low.astype(np.float32)
+            high = space.high.astype(np.float32)
+        else:
+            raise TypeError(f"Unsupported observation space type: {type(space)}")
+
+        return low, high
+
 
 class Office(GridEnv):
     MAP = np.array([[' ', ' ', 'C1', ' ', ' ', 'X', ' ', 'C2', ' ', ' ', ' '],
@@ -375,6 +399,9 @@ class Office(GridEnv):
 
         self.exit_states = exit_states
 
+        height, width = self.MAP.shape
+        self.observation_space = MultiDiscrete([height, width])
+
     def _create_transition_function(self):
         self._create_transition_function_base()
 
@@ -412,6 +439,9 @@ class OfficeAreas(GridEnv):
         self.exit_states = exit_states
         self.feat_indices = feat_indices
 
+        height, width = self.MAP.shape
+        self.observation_space = MultiDiscrete([height, width])
+
     def features(self, state, action, next_state):
         s1 = next_state
         nc = self.feat_dim
@@ -431,10 +461,11 @@ class OfficeAreas(GridEnv):
 
 class FeatureExtractor:
     def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
-                 min_activation_thresh=0.1, verbose=True):
+                 min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False):
         self._feat_data = feat_data
         self.feat_fn = feat_fn
         self.phi_obj_types = phi_obj_types
+        self.normalize_states_for_fourier = normalize_states_for_fourier
 
         if remove_redundant_features:
             if exit_states is None:
@@ -488,7 +519,11 @@ class FeatureExtractor:
 
         if is_goal_state:
             symbol = env.get_symbol_at_state(next_state)
-            y, x = next_state
+
+            if self.normalize_states_for_fourier:
+                y, x = normalize_state(next_state, env.low, env.high)
+            else:
+                y, x = next_state
 
             feat_vec = self.feat_fn(x, y, self._feat_data[symbol])
             feat_indices = self.feat_indices[symbol]
@@ -551,6 +586,9 @@ class OfficeAreasRBF(GridEnv):
                 current_index += 1
 
                 self.prop_at_feat_idx.append(symbol)
+
+        height, width = self.MAP.shape
+        self.observation_space = MultiDiscrete([height, width])
 
     def _create_transition_function(self):
         self._create_transition_function_base()
@@ -661,6 +699,8 @@ class OfficeAreasFeatures(GridEnv):
                          add_empty_to_start=add_empty_to_start, init_w=False)
         self._create_coord_mapping()
         self._create_transition_function()
+        height, width = self.MAP.shape
+        self.observation_space = MultiDiscrete([height, width])
 
         exit_states = {}
         for s in self.object_ids:
@@ -673,13 +713,20 @@ class OfficeAreasFeatures(GridEnv):
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
 
+        feature_extractor_kwargs = dict()
+        if hasattr(level, "NORMALIZE_STATES_FOR_FOURIER"):
+            feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
+
         self.feature_extractor = (
             FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
                              remove_redundant_features=remove_redundant_features,
-                             min_activation_thresh=min_activation_thresh, verbose=True))
+                             min_activation_thresh=min_activation_thresh, verbose=True,
+                             **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
+        self.low, self.high = self.get_observation_bounds()
 
         self.w = np.zeros(self.feat_dim)
+
 
     def _create_transition_function(self):
         self._create_transition_function_base()
