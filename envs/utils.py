@@ -1,9 +1,9 @@
 import numpy as np
 
 
-def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
+def get_rbf_activation_data_old(env, include_threshold=0.01, exclude=None):
     grid_height, grid_width = env.MAP.shape
-    rbf_data = {'A': {(0, 0): {(0, 0): 1, (1, 1): 0.5}, (1, 1): {}}}
+    rbf_data = {}
 
     for symbol in sorted(env.COORDS_RBFS.keys()):  # Sort A → B → C
         rbf_data[symbol] = {}
@@ -19,6 +19,27 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
                     activation_value = gaussian_rbf(x, y, cx, cy, d=env.D_RBFS[symbol][i])
                     if activation_value > include_threshold:
                         rbf_data[symbol][center_coords][(y, x)] = activation_value
+    return rbf_data, (grid_height, grid_width)
+
+
+def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
+    grid_height, grid_width = env.MAP.shape
+    rbf_data = {}
+
+    for symbol in sorted(env.FEAT_DATA.keys()):  # Sort A → B → C
+        rbf_data[symbol] = {}
+        for i, data in enumerate(env.FEAT_DATA[symbol]):
+            cy, cx, d = data  # RBF center
+            rbf_data[symbol][(cy, cx)] = {}
+
+            # Compute RBF activation for each cell in the grid
+            for y in range(grid_height):
+                for x in range(grid_width):
+                    if exclude and env.MAP[y, x] in exclude:
+                        continue
+                    activation_value = gaussian_rbf(x, y, cx, cy, d=d)
+                    if activation_value > include_threshold:
+                        rbf_data[symbol][(cy, cx)][(y, x)] = activation_value
     return rbf_data, (grid_height, grid_width)
 
 
@@ -40,7 +61,7 @@ def gaussian_rbf_features(x, y, feat_data=((0, 0, 4), (1, 1, 4))):
         np.array: Feature vector of shape (2 * len(directions),) or (..., 2 * len(directions))
     """
     feats = []
-    for cx, cy, d in feat_data:
+    for cy, cx, d in feat_data:
         val = gaussian_rbf(x, y, cx, cy, d)
         feats.append(val)
     return np.array(feats)

@@ -136,7 +136,8 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
                     # Check that the extracted object name is in PHI_OBJ_TYPES
                     if obj_name not in self.PHI_OBJ_TYPES:
                         raise ValueError(
-                            f"Found unknown RBF '{cell_value}' at ({row}, {col}) in RBF_MAP, but '{obj_name}' is not in PHI_OBJ_TYPES.")
+                            f"Found unknown RBF '{cell_value}' at ({row}, {col}) in RBF_MAP, but '{obj_name}' is not "
+                            f"in PHI_OBJ_TYPES.")
 
                     # Add to COORDS_RBFS
                     if obj_name not in self.COORDS_RBFS:
@@ -166,7 +167,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
 
 @dataclass
 class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
-    FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int]]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+    FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int], ...]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
     FEAT_FN = staticmethod(fourier_features)
     NORMALIZE_STATES_FOR_FOURIER = True
 
@@ -251,14 +252,6 @@ office_areas_rbf = LevelDataOfficeAreasRBF(
         'C': [1]
     },
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
-)
-
-office_areas_fourier = LevelDataOfficeAreasFourier(
-    MAP=office_areas.MAP,
-    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
-    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
-    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
-    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
 )
 
 office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
@@ -349,6 +342,15 @@ office_areas_rbf_goals_apart = LevelDataOfficeAreasRBF(
     MAP_DEFAULT_D_RBFS=3,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
+
+office_areas_fourier = LevelDataOfficeAreasFourier(
+    MAP=office_areas_rbf_goals_apart.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+)
+
 
 office_areas_rbf_grids = LevelDataOfficeAreasRBF(
     MAP=office_areas.MAP,
@@ -477,32 +479,6 @@ office_areas_rbf_fat = LevelDataOfficeAreasRBF(
         [' ', ' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' '],
     ]),
     MAP_DEFAULT_D_RBFS=3,
-    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
-)
-
-office_areas_rbf_from_map = LevelDataOfficeAreasRBF(
-    MAP=office_areas.MAP,
-    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
-    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
-    RBF_MAP=np.array([
-        [' ', ' ', ' ', 'B_RBF', 'B', 'X', 'C_RBF_1', ' ', ' ', ' ', ' ', ' ', '_'],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', 'B', 'B', 'B', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B_RBF_4', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-        [' ', ' ', ' ', 'A', 'A_RBF_1', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', 'B', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'B_RBF_4', 'B', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-    ]),
-    MAP_DEFAULT_D_RBFS=1,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
