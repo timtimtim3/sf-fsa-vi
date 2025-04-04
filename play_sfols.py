@@ -15,7 +15,7 @@ import envs
 import gym
 import wandb
 import matplotlib.pyplot as plt
-from envs.utils import get_rbf_activation_data
+from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals
 import pickle as pkl
 
@@ -68,7 +68,7 @@ def load_qtables_from_pickles(policy_dir: str):
     return q_tables
 
 
-def plot_gpi_qvals(w_dict, gpi_agent, train_env, rbf_data, verbose=True):
+def plot_gpi_qvals(w_dict, gpi_agent, train_env, activation_data, verbose=True, unique_symbol_for_centers=False):
     if verbose:
         print("\nPlotting GPI q-values:")
     w_arr = np.asarray(list(w_dict.values())).reshape(-1)
@@ -82,7 +82,8 @@ def plot_gpi_qvals(w_dict, gpi_agent, train_env, rbf_data, verbose=True):
             print(uidx, np.round(w, 2))
         actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
         arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-        plot_q_vals(w, train_env, arrow_data=arrow_data, rbf_data=rbf_data, policy_indices=policy_indices)
+        plot_q_vals(w, train_env, arrow_data=arrow_data, activation_data=activation_data,
+                    policy_indices=policy_indices, unique_symbol_for_centers=unique_symbol_for_centers)
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
@@ -163,11 +164,16 @@ def main(cfg: DictConfig) -> None:
 
     gpi_agent.load_policies(policy_dir, q_tables)
 
+    unique_symbol_for_centers = False
+    grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
-        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size, train_env, skip_non_goal=False)
+        activation_data, _ = get_rbf_activation_data(train_env, exclude={"X"})
+        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False)
+        unique_symbol_for_centers = True
+    elif "fourier" in env_level_name:
+        activation_data, _ = get_fourier_activation_data(train_env, exclude={"X"})
     else:
-        rbf_data = None
+        activation_data = None
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
@@ -176,7 +182,8 @@ def main(cfg: DictConfig) -> None:
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
         print(i, np.round(w, 2))
         if plot:
-            plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
+            plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
+                        unique_symbol_for_centers=unique_symbol_for_centers)
             # plot_maxqvals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
             # row 5 col 3, 4
 
@@ -229,7 +236,7 @@ def main(cfg: DictConfig) -> None:
     # Enable this to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
 
-    plot_gpi_qvals(W, gpi_agent, train_env, rbf_data)
+    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
 
     train_env.close()
     eval_env.close()  # Close the environment when done

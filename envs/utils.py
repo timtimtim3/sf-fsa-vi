@@ -28,9 +28,9 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
 
     for symbol in sorted(env.FEAT_DATA.keys()):  # Sort A → B → C
         rbf_data[symbol] = {}
-        for i, data in enumerate(env.FEAT_DATA[symbol]):
-            cy, cx, d = data  # RBF center
-            rbf_data[symbol][(cy, cx)] = {}
+        for i, feat in enumerate(env.FEAT_DATA[symbol]):
+            cy, cx, d = feat  # RBF center
+            rbf_data[symbol][feat] = {}
 
             # Compute RBF activation for each cell in the grid
             for y in range(grid_height):
@@ -39,8 +39,30 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
                         continue
                     activation_value = gaussian_rbf(x, y, cx, cy, d=d)
                     if activation_value > include_threshold:
-                        rbf_data[symbol][(cy, cx)][(y, x)] = activation_value
+                        rbf_data[symbol][feat][(y, x)] = activation_value
     return rbf_data, (grid_height, grid_width)
+
+
+def get_fourier_activation_data(env, include_threshold=0.01, exclude=None):
+    grid_height, grid_width = env.MAP.shape
+    activation_data = {}
+
+    for symbol in sorted(env.FEAT_DATA.keys()):  # Sort A → B → C
+        activation_data[symbol] = {}
+        for i, feat in enumerate(env.FEAT_DATA[symbol]):
+            fx, fy = feat
+            activation_data[symbol][feat] = {}
+
+            # Compute activation for each cell in the grid
+            for y in range(grid_height):
+                for x in range(grid_width):
+                    if exclude and env.MAP[y, x] in exclude:
+                        continue
+                    norm_y, norm_x = normalize_state((y, x), env.low, env.high)
+                    activation_value = fourier(norm_x, norm_y, fx, fy)
+                    if activation_value > include_threshold:
+                        activation_data[symbol][feat][(y, x)] = activation_value
+    return activation_data, (grid_height, grid_width)
 
 
 def gaussian_rbf(x, y, cx, cy, d=1):
@@ -67,6 +89,11 @@ def gaussian_rbf_features(x, y, feat_data=((0, 0, 4), (1, 1, 4))):
     return np.array(feats)
 
 
+def fourier(x, y, fx, fy):
+    arg = np.pi * (fx * x + fy * y)
+    return np.cos(arg)
+
+
 def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     """
     Generate combined Fourier features using 2D frequency directions.
@@ -81,9 +108,8 @@ def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     """
     feats = []
     for fx, fy in feat_data:
-        arg = np.pi * (fx * x + fy * y)
-        feats.append(np.sin(arg))
-        feats.append(np.cos(arg))
+        feat = fourier(x, y, fx, fy)
+        feats.append(feat)
     return np.array(feats)
 
 

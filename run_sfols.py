@@ -20,8 +20,7 @@ import envs
 import gym
 import os
 from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
-from envs.utils import get_rbf_activation_data
-
+from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
 EVAL_EPISODES = 20
 
@@ -103,11 +102,16 @@ def main(cfg: DictConfig) -> None:
     shutil.rmtree(base_save_dir, ignore_errors=True)
     os.makedirs(base_save_dir, exist_ok=True)
 
+    unique_symbol_for_centers = False
+    grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
-        rbf_data, grid_size = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(rbf_data, grid_size, train_env, skip_non_goal=False)
+        activation_data, _ = get_rbf_activation_data(train_env, exclude={"X"})
+        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False)
+        unique_symbol_for_centers = True
+    elif "fourier" in env_level_name:
+        activation_data, _ = get_fourier_activation_data(train_env, exclude={"X"})
     else:
-        rbf_data = None
+        activation_data = None
 
     for ols_iter in range(cfg.max_iter_ols):
         print(f"ols_iter: {ols_iter}")
@@ -139,8 +143,9 @@ def main(cfg: DictConfig) -> None:
                 json.dump(q_table_serializable, f, indent=4)
 
             # plot and save q-vals
-            plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data,
-                        save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
+            plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
+                        save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
+                        unique_symbol_for_centers=unique_symbol_for_centers)
 
     # Save Q-tables as .json files
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
@@ -154,8 +159,9 @@ def main(cfg: DictConfig) -> None:
             json.dump(q_table_serializable, f, indent=4)
 
         # plot and save q-vals
-        plot_q_vals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data,
-                    save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False)
+        plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
+                    save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
+                    unique_symbol_for_centers=unique_symbol_for_centers)
 
     # Save policies as .pkl files
     for i, pi in enumerate(gpi_agent.policies):
@@ -216,7 +222,7 @@ def main(cfg: DictConfig) -> None:
 
     acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 
-    plot_gpi_qvals(W, gpi_agent, train_env, rbf_data)
+    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
 
     wb.finish()
 

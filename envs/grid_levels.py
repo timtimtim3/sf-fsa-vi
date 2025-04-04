@@ -53,7 +53,7 @@ class LevelDataOfficeAreasRBF(LevelDataOfficeAreas):
     X_FEAT_COUNT: Optional[int] = None
     Y_FEAT_COUNT: Optional[int] = None
     GRID_D_RBFS: Optional[Union[int, float]] = None
-    DELETE_REDUNDANT_RBFS: Optional[bool] = None
+    REMOVE_REDUNDANT_FEAT: Optional[bool] = None
     FEAT_FN = staticmethod(gaussian_rbf_features)
 
     def __post_init__(self):
@@ -170,6 +170,7 @@ class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
     FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int], ...]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
     FEAT_FN = staticmethod(fourier_features)
     NORMALIZE_STATES_FOR_FOURIER = True
+    REMOVE_REDUNDANT_FEAT: Optional[bool] = True
 
     def __post_init__(self):
         self.FEAT_DATA = {symbol: deepcopy(self.FREQUENCY_PAIRS) for symbol in self.PHI_OBJ_TYPES}
@@ -343,25 +344,26 @@ office_areas_rbf_goals_apart = LevelDataOfficeAreasRBF(
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
-office_areas_fourier = LevelDataOfficeAreasFourier(
+office_areas_fourier_goals_apart = LevelDataOfficeAreasFourier(
     MAP=office_areas_rbf_goals_apart.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
     RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
-    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+    # FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1))
 )
 
 
 office_areas_rbf_grids = LevelDataOfficeAreasRBF(
-    MAP=office_areas.MAP,
+    MAP=office_areas_rbf_goals_apart.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
     RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
     CREATE_RBF_GRID=True,
     X_FEAT_COUNT=3,
     Y_FEAT_COUNT=3,
-    GRID_D_RBFS=4,
-    DELETE_REDUNDANT_RBFS=True
+    GRID_D_RBFS=3,
+    REMOVE_REDUNDANT_FEAT=True
 )
 
 office_areas_rbf_semi_circle = LevelDataOfficeAreasRBF(
@@ -538,6 +540,6 @@ LEVELS = {
     "office_areas_rbf_fat_small": office_areas_rbf_fat_small,
     "office_areas_rbf_fat": office_areas_rbf_fat,
     "office_areas_fourier_fat_small": office_areas_fourier_fat_small,
-    "office_areas_fourier": office_areas_fourier,
+    "office_areas_fourier_goals_apart": office_areas_fourier_goals_apart,
     "office_areas_rbf_no_edge": office_areas_rbf_no_edge
 }

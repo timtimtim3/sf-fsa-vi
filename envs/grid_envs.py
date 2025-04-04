@@ -461,8 +461,8 @@ class OfficeAreas(GridEnv):
 
 class OfficeAreasRBF(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False, only_rbf=False,
-                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, delete_redundant_rbfs=False,
-                 terminate_action=False, term_only_on_term_action=False, reset_probability_goals=None):
+                 level_name="office_areas_rbf_from_map", min_activation_thresh=0.1, terminate_action=False,
+                 term_only_on_term_action=False, reset_probability_goals=None):
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
 
@@ -475,8 +475,8 @@ class OfficeAreasRBF(GridEnv):
         self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
         self.only_rbf = only_rbf
         self.term_only_on_term_action = term_only_on_term_action
-        self.delete_redundant_rbfs = level.DELETE_REDUNDANT_RBFS if level.DELETE_REDUNDANT_RBFS is not None else (
-            delete_redundant_rbfs)
+        self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
+            False
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action,
@@ -495,7 +495,7 @@ class OfficeAreasRBF(GridEnv):
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
 
-        if self.delete_redundant_rbfs:
+        if self.remove_redundant_features:
             self.remove_redundant_rbfs(min_activation_thresh=min_activation_thresh)
 
         self.rbf_lengths = {symbol: len(coords_list) for symbol, coords_list in self.COORDS_RBFS.items()}
@@ -719,8 +719,8 @@ class FeatureExtractor:
 
 class OfficeAreasFeatures(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
-                 level_name="office_areas_fourier", min_activation_thresh=0.1, remove_redundant_features=False,
-                 terminate_action=False, term_only_on_term_action=False, reset_probability_goals=None):
+                 level_name="office_areas_fourier", min_activation_thresh=0.1,terminate_action=False,
+                 term_only_on_term_action=False, reset_probability_goals=None):
         """
         Initialize the OfficeAreasFeatures environment.
 
@@ -734,10 +734,8 @@ class OfficeAreasFeatures(GridEnv):
             level_name (str): Name of the level to load from the `LEVELS` dictionary. The level must be compatible
                 with this environment class (e.g., a Fourier or RBF level for OfficeAreasFeatures).
             min_activation_thresh (float): Minimum activation threshold used when removing redundant features.
-                If `remove_redundant_features` is True, features with maximum activation below this threshold
+                If `remove_redundant_features` in level is True, features with maximum activation below this threshold
                 across the entire grid are removed.
-            remove_redundant_features (bool): Whether to remove redundant features (i.e., low-activation ones)
-                based on `min_activation_thresh`.
             terminate_action (bool): If True, enables a special "terminate" action that allows the agent to
                 explicitly end the episode.
             term_only_on_term_action (bool): If True and `terminate_action` is enabled, the environment will
@@ -758,6 +756,8 @@ class OfficeAreasFeatures(GridEnv):
         self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
         self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
         self.FEAT_FN = level.FEAT_FN
+        self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
+            False
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action,
@@ -786,7 +786,7 @@ class OfficeAreasFeatures(GridEnv):
             feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
         self.feature_extractor = (
             FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
-                             remove_redundant_features=remove_redundant_features, verbose=True,
+                             remove_redundant_features=self.remove_redundant_features, verbose=True,
                              min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
                              **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
