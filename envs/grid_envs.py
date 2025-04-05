@@ -626,13 +626,20 @@ class OfficeAreasRBF(GridEnv):
 
 class FeatureExtractor:
     def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
-                 min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False, terminate_action=False):
+                 min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False, terminate_action=False,
+                 low=None, high=None):
         self._feat_data = feat_data
         self.feat_fn = feat_fn
         self.phi_obj_types = phi_obj_types
         self.phi_obj_types_sorted = sorted(phi_obj_types)
         self.normalize_states_for_fourier = normalize_states_for_fourier
         self.terminate_action = terminate_action
+        self.low, self.high = low, high
+
+        if normalize_states_for_fourier and remove_redundant_features:
+            if self.low is None or self.high is None:
+                raise ValueError("Low and high cannot be None if remove_redundant_features and "
+                                 "normalize_states_for_fourier are set to True")
 
         if remove_redundant_features:
             if exit_states is None:
@@ -664,6 +671,9 @@ class FeatureExtractor:
             feat_matrix = np.zeros((len(exit_states_symbol), len(feat_data)))
             for i, exit_state in enumerate(exit_states_symbol):
                 y, x = exit_state
+                if self.normalize_states_for_fourier:
+                    y, x = normalize_state(exit_state, self.low, self.high)
+
                 feat_vec = self.feat_fn(x, y, feat_data=feat_data)
                 feat_matrix[i, :] = feat_vec
 
@@ -788,7 +798,7 @@ class OfficeAreasFeatures(GridEnv):
             FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
                              remove_redundant_features=self.remove_redundant_features, verbose=True,
                              min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
-                             **feature_extractor_kwargs))
+                             low=self.low, high=self.high, **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
 
         # self.feat_dim depends on feature extractor __init__, so intialize w here
