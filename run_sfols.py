@@ -19,7 +19,7 @@ import hydra
 import envs
 import gym
 import os
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, plot_all_fourier
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
 EVAL_EPISODES = 20
@@ -105,11 +105,12 @@ def main(cfg: DictConfig) -> None:
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
-        activation_data, _ = get_rbf_activation_data(train_env, exclude={"X"})
+        activation_data, _ = get_rbf_activation_data(train_env)
         plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False)
         unique_symbol_for_centers = True
     elif "fourier" in env_level_name:
-        activation_data, _ = get_fourier_activation_data(train_env, exclude={"X"})
+        activation_data, _ = get_fourier_activation_data(train_env)
+        plot_all_fourier(activation_data, grid_size, train_env)
     else:
         activation_data = None
 

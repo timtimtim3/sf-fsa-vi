@@ -16,7 +16,8 @@ import gym
 import wandb
 import matplotlib.pyplot as plt
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals
+from sfols.plotting.plotting import (plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals,
+                                     plot_all_fourier)
 import pickle as pkl
 
 EVAL_EPISODES = 20
@@ -171,7 +172,8 @@ def main(cfg: DictConfig) -> None:
         plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False)
         unique_symbol_for_centers = True
     elif "fourier" in env_level_name:
-        activation_data, _ = get_fourier_activation_data(train_env, exclude={"X"})
+        activation_data, _ = get_fourier_activation_data(train_env)
+        plot_all_fourier(activation_data, grid_size, train_env)
     else:
         activation_data = None
 
