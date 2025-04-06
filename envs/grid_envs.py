@@ -627,7 +627,7 @@ class OfficeAreasRBF(GridEnv):
 class FeatureExtractor:
     def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
                  min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False, terminate_action=False,
-                 low=None, high=None):
+                 low=None, high=None, normalize_features=False):
         self._feat_data = feat_data
         self.feat_fn = feat_fn
         self.phi_obj_types = phi_obj_types
@@ -635,6 +635,9 @@ class FeatureExtractor:
         self.normalize_states_for_fourier = normalize_states_for_fourier
         self.terminate_action = terminate_action
         self.low, self.high = low, high
+        self.norm_weights = None
+        self.normalize_features = normalize_features
+        self.norm_weights = {}
 
         if normalize_states_for_fourier and remove_redundant_features:
             if self.low is None or self.high is None:
@@ -645,6 +648,11 @@ class FeatureExtractor:
             if exit_states is None:
                 raise ValueError("Exit states cannot be None if remove_redundant_features is set to True")
             self._remove_redundant_features(exit_states, min_activation_thresh, verbose)
+
+        if normalize_features:
+            if exit_states is None:
+                raise ValueError("Exit states cannot be None if norm_features is set to True")
+            self._set_norm_weights(exit_states)
 
         self.feat_dim = sum([len(feat_data) for feat_data in self._feat_data.values()])
         self.feat_indices = {}
@@ -688,6 +696,31 @@ class FeatureExtractor:
             filtered_feat_data = tuple([feat for i, feat in enumerate(feat_data) if i not in indices_feat_to_remove])
             self._feat_data[symbol] = filtered_feat_data
 
+    def _set_norm_weights(self, exit_states):
+        for symbol in self.phi_obj_types:
+            symbol_idx = self.phi_obj_types.index(symbol)
+            feat_data = self._feat_data[symbol]
+            exit_states_symbol = exit_states[symbol_idx]
+
+            feat_matrix = np.zeros((len(exit_states_symbol), len(feat_data)))
+            for i, exit_state in enumerate(exit_states_symbol):
+                y, x = exit_state
+                if self.normalize_states_for_fourier:
+                    y, x = normalize_state(exit_state, self.low, self.high)
+
+                feat_vec = self.feat_fn(x, y, feat_data=feat_data)
+                feat_matrix[i, :] = feat_vec
+
+            # Get max activation over exit states for each feature
+            max_activation_feat = np.max(feat_matrix, axis=0)
+
+            # Avoid division by zero: replace 0 with 1
+            max_activation_feat_safe = np.where(max_activation_feat == 0, 1, max_activation_feat)
+
+            # Create a normalization vector such that each element multiplied gives max of 1
+            norm_vector = 1.0 / max_activation_feat_safe
+            self.norm_weights[symbol] = norm_vector
+
     def features(self, env, state, action, next_state):
         phi = np.zeros(self.feat_dim, dtype=np.float32)
         if self.terminate_action and not env.is_done(state, action, next_state):
@@ -705,6 +738,10 @@ class FeatureExtractor:
                 y, x = next_state
 
             feat_vec = self.feat_fn(x, y, self._feat_data[symbol])
+
+            if self.normalize_features:
+                feat_vec = feat_vec * self.norm_weights[symbol]
+
             feat_indices = self.feat_indices[symbol]
             phi[feat_indices] = feat_vec
         return phi
@@ -729,7 +766,7 @@ class FeatureExtractor:
 
 class OfficeAreasFeatures(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
-                 level_name="office_areas_fourier", min_activation_thresh=0.1,terminate_action=False,
+                 level_name="office_areas_fourier", min_activation_thresh=0.1, terminate_action=False,
                  term_only_on_term_action=False, reset_probability_goals=None):
         """
         Initialize the OfficeAreasFeatures environment.
@@ -794,6 +831,8 @@ class OfficeAreasFeatures(GridEnv):
         feature_extractor_kwargs = dict()
         if hasattr(level, "NORMALIZE_STATES_FOR_FOURIER"):
             feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
+        if hasattr(level, "NORMALIZE_FEATURES"):
+            feature_extractor_kwargs["normalize_features"] = level.NORMALIZE_FEATURES
         self.feature_extractor = (
             FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
                              remove_redundant_features=self.remove_redundant_features, verbose=True,

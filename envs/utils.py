@@ -91,7 +91,7 @@ def gaussian_rbf_features(x, y, feat_data=((0, 0, 4), (1, 1, 4))):
 
 def fourier(x, y, fx, fy):
     arg = np.pi * (fx * x + fy * y)
-    return np.cos(arg)
+    return (np.cos(arg) + 1) / 2
 
 
 def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):

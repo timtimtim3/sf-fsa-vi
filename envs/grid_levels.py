@@ -170,6 +170,7 @@ class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
     FREQUENCY_PAIRS: Optional[Tuple[Tuple[int, int], ...]] = ((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
     FEAT_FN = staticmethod(fourier_features)
     NORMALIZE_STATES_FOR_FOURIER = True
+    NORMALIZE_FEATURES = True
     REMOVE_REDUNDANT_FEAT: Optional[bool] = True
 
     def __post_init__(self):
@@ -349,10 +350,16 @@ office_areas_fourier_goals_apart = LevelDataOfficeAreasFourier(
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
     RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
-    # FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
     FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1))
 )
 
+office_areas_fourier_goals_apart_5_feat = LevelDataOfficeAreasFourier(
+    MAP=office_areas_rbf_goals_apart.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))
+)
 
 office_areas_rbf_grids = LevelDataOfficeAreasRBF(
     MAP=office_areas_rbf_goals_apart.MAP,
@@ -541,5 +548,6 @@ LEVELS = {
     "office_areas_rbf_fat": office_areas_rbf_fat,
     "office_areas_fourier_fat_small": office_areas_fourier_fat_small,
     "office_areas_fourier_goals_apart": office_areas_fourier_goals_apart,
-    "office_areas_rbf_no_edge": office_areas_rbf_no_edge
+    "office_areas_rbf_no_edge": office_areas_rbf_no_edge,
+    "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat
 }
