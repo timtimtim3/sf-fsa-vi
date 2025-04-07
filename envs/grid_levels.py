@@ -558,5 +558,6 @@ LEVELS = {
     "office_areas_fourier_fat_small": office_areas_fourier_fat_small,
     "office_areas_fourier_goals_apart": office_areas_fourier_goals_apart,
     "office_areas_rbf_no_edge": office_areas_rbf_no_edge,
-    "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat
+    "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat,
+    "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv
 }
