@@ -50,7 +50,6 @@ def get_fourier_activation_data(env, include_threshold=0.01, exclude=None):
     for symbol in sorted(env.FEAT_DATA.keys()):  # Sort A → B → C
         activation_data[symbol] = {}
         for i, feat in enumerate(env.FEAT_DATA[symbol]):
-            fx, fy = feat
             activation_data[symbol][feat] = {}
 
             # Compute activation for each cell in the grid
@@ -59,7 +58,7 @@ def get_fourier_activation_data(env, include_threshold=0.01, exclude=None):
                     if exclude and env.MAP[y, x] in exclude:
                         continue
                     norm_y, norm_x = normalize_state((y, x), env.low, env.high)
-                    activation_value = fourier(norm_x, norm_y, fx, fy)
+                    activation_value = fourier_features(norm_x, norm_y, feat_data=(feat,))[0]
                     if activation_value > include_threshold:
                         activation_data[symbol][feat][(y, x)] = activation_value
     return activation_data, (grid_height, grid_width)
@@ -94,6 +93,11 @@ def fourier(x, y, fx, fy):
     return (np.cos(arg) + 1) / 2
 
 
+def inverse_fourier(x, y, fx, fy):
+    arg = np.pi * (fx * x + fy * y)
+    return 1 - (np.cos(arg) + 1) / 2
+
+
 def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     """
     Generate combined Fourier features using 2D frequency directions.
@@ -106,11 +110,15 @@ def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     Returns:
         np.array: Feature vector of shape (2 * len(directions),) or (..., 2 * len(directions))
     """
-    feats = []
-    for fx, fy in feat_data:
-        feat = fourier(x, y, fx, fy)
-        feats.append(feat)
-    return np.array(feats)
+    feat_activations = []
+    for feat in feat_data:
+        fx, fy = feat[0], feat[1]
+        if len(feat) == 3 and feat[2] == 'inv':
+            activation = inverse_fourier(x, y, fx, fy)
+        else:
+            activation = fourier(x, y, fx, fy)
+        feat_activations.append(activation)
+    return np.array(feat_activations)
 
 
 def normalize_state(state, low, high):
