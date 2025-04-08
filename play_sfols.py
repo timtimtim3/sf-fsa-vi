@@ -169,11 +169,11 @@ def main(cfg: DictConfig) -> None:
     grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
         activation_data, _ = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False)
+        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False, save_dir=policy_dir)
         unique_symbol_for_centers = True
     elif "fourier" in env_level_name:
         activation_data, _ = get_fourier_activation_data(train_env)
-        plot_all_fourier(activation_data, grid_size, train_env)
+        plot_all_fourier(activation_data, grid_size, train_env, save_dir=policy_dir)
     else:
         activation_data = None
 
