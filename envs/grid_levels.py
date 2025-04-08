@@ -370,6 +370,14 @@ office_areas_fourier_goals_apart_inv = LevelDataOfficeAreasFourier(
     FREQUENCY_PAIRS=((1, 0), (0, 1), (1, 1), (1, 0, 'inv'), (0, 1, 'inv'), (1, 1, 'inv'))
 )
 
+office_areas_fourier_goals_apart_mirr = LevelDataOfficeAreasFourier(
+    MAP=office_areas_rbf_goals_apart.MAP,
+    PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((1, 0), (1, 1, 'mirr_x'))
+)
+
 office_areas_rbf_grids = LevelDataOfficeAreasRBF(
     MAP=office_areas_rbf_goals_apart.MAP,
     PHI_OBJ_TYPES=office_areas.PHI_OBJ_TYPES,
@@ -559,5 +567,6 @@ LEVELS = {
     "office_areas_fourier_goals_apart": office_areas_fourier_goals_apart,
     "office_areas_rbf_no_edge": office_areas_rbf_no_edge,
     "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat,
-    "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv
+    "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv,
+    "office_areas_fourier_goals_apart_mirr": office_areas_fourier_goals_apart_mirr
 }

@@ -98,6 +98,52 @@ def inverse_fourier(x, y, fx, fy):
     return 1 - (np.cos(arg) + 1) / 2
 
 
+def fourier_mirrored_x(x, y, fx, fy):
+    """
+    Fourier activation function with mirroring in x about 0.5.
+
+    Mirrors the x-coordinate (i.e., replacing x with 1-x) so that
+    for the (fx, fy) pair (e.g., (1, 1)), the spatial pattern is flipped horizontally.
+    This transformation causes high activations to be shifted to the opposite horizontal
+    corners relative to the non-mirrored pattern.
+
+    Parameters:
+        x (float or np.array): x-coordinate(s)
+        y (float or np.array): y-coordinate(s)
+        fx (float): frequency multiplier for x
+        fy (float): frequency multiplier for y
+
+    Returns:
+        np.array: The Fourier activation computed as (cos(arg) + 1)/2,
+                  where arg = π * (fx * (1 - x) + fy * y).
+    """
+    arg = np.pi * (fx * (1 - x) + fy * y)
+    return (np.cos(arg) + 1) / 2
+
+
+def fourier_mirrored_y(x, y, fx, fy):
+    """
+    Fourier activation function with mirroring in y about 0.5.
+
+    Mirrors the y-coordinate (i.e., replacing y with 1-y) so that
+    for the (fx, fy) pair (e.g., (1, 1)), the spatial pattern is flipped vertically.
+    This transformation causes high activations to be shifted to the opposite vertical
+    corners relative to the non-mirrored pattern.
+
+    Parameters:
+        x (float or np.array): x-coordinate(s)
+        y (float or np.array): y-coordinate(s)
+        fx (float): frequency multiplier for x
+        fy (float): frequency multiplier for y
+
+    Returns:
+        np.array: The Fourier activation computed as (cos(arg) + 1)/2,
+                  where arg = π * (fx * x + fy * (1 - y)).
+    """
+    arg = np.pi * (fx * x + fy * (1 - y))
+    return (np.cos(arg) + 1) / 2
+
+
 def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
     """
     Generate combined Fourier features using 2D frequency directions.
@@ -115,6 +161,10 @@ def fourier_features(x, y, feat_data=((1, 0), (0, 1), (1, 1), (2, 1), (1, 2))):
         fx, fy = feat[0], feat[1]
         if len(feat) == 3 and feat[2] == 'inv':
             activation = inverse_fourier(x, y, fx, fy)
+        elif len(feat) == 3 and feat[2] == 'mirr_x':
+            activation = fourier_mirrored_x(x, y, fx, fy)
+        elif len(feat) == 3 and feat[2] == 'mirr_y':
+            activation = fourier_mirrored_y(x, y, fx, fy)
         else:
             activation = fourier(x, y, fx, fy)
         feat_activations.append(activation)
