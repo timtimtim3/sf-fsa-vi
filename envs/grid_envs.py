@@ -195,25 +195,6 @@ class GridEnv(ABC, gym.Env):
         prop = self.MAP[new_state]
         return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
 
-    def get_reward(self, action, phi, w):
-        # If the env doesn't allow a terminate action, we return the regular reward
-        if not self.terminate_action:
-            return np.dot(phi, w)
-
-        if action == self.TERMINATE:
-            # Give 0 reward if the agent selects the terminate action in a non-goal state
-            if self.old_state not in self.object_ids:
-                return 0
-
-         # If the agent did not select the terminal action but the state didn't change,
-        # this means an invalid move was made
-        if action != self.TERMINATE and self.old_state == self.state:
-            return 0
-
-        # In all other cases the agent selected the terminate action in a goal-state or the agent did not select
-        # the terminate action, in both cases we return the regular reward
-        return np.dot(phi, w)
-
     # =========================================================================== #
     # STATE ENCODING FOR DEEP LEARNING                                            #
     # =========================================================================== #
@@ -324,6 +305,276 @@ class GridEnv(ABC, gym.Env):
                 raise IndexError(f"State {state} is out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
 
         raise ValueError(f"Invalid state: {state}. Expected a tuple of two integers or None.")
+
+    def get_observation_bounds(self):
+        """
+        Returns the lower and upper bounds of the observation space as NumPy arrays.
+
+        Supports both gym.spaces.MultiDiscrete and gym.spaces.Box.
+
+        Returns:
+            tuple: (low, high), where both are np.ndarray with the same shape as observations.
+
+        Raises:
+            TypeError: If the observation space is not MultiDiscrete or Box.
+        """
+        space = self.observation_space
+
+        if isinstance(space, gym.spaces.MultiDiscrete):
+            low = np.zeros_like(space.nvec, dtype=np.float32)
+            high = (space.nvec - 1).astype(np.float32)
+        elif isinstance(space, gym.spaces.Box):
+            low = space.low.astype(np.float32)
+            high = space.high.astype(np.float32)
+        else:
+            raise TypeError(f"Unsupported observation space type: {type(space)}")
+
+        return low, high
+
+
+class GridEnvContinuous(ABC, gym.Env):
+    metadata = {'render.modes': ['human'], 'video.frames_per_second': 20}
+
+    def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False,
+                reset_probability_goals=None, cell_size=1.0, step_size=0.5, noise_std=0.0, action_level=1):
+        super(GridEnvContinuous, self).__init__()
+        self.random_act_prob = random_act_prob
+        self.add_obj_to_start = add_obj_to_start
+        self.viewer = None
+        self.height, self.width = self.MAP.shape
+        self.all_objects = dict(zip(self.PHI_OBJ_TYPES, range(len(self.PHI_OBJ_TYPES))))
+        self.initial = []
+        self.occupied = set()
+        self.object_ids = dict()
+        self.terminate_action = terminate_action
+        self.reset_probability_goals = reset_probability_goals
+        self.initial_is_goal = []
+
+        self.cell_size = cell_size
+        self.step_size = step_size
+        self.noise_std = noise_std
+
+        self.action_level = action_level
+        self.n_actions = 2 ** (self.action_level + 1)
+        self.action_angles = np.linspace(0, 2 * np.pi, self.n_actions, endpoint=False)
+        self.action_space = Discrete(self.n_actions if not self.terminate_action else self.n_actions + 1)
+        self.TERMINATE = self.n_actions if self.terminate_action else None
+
+        # Define the continuous observation space covering the whole map.
+        low = np.array([0.0, 0.0], dtype=np.float32)
+        high = np.array([self.width * self.cell_size, self.height * self.cell_size], dtype=np.float32)
+        self.observation_space = Box(low=low, high=high, dtype=np.float32)
+
+        for c in range(self.width):
+            for r in range(self.height):
+                if self.MAP[r, c] == 'X':
+                    self.occupied.add((r, c))
+                    continue
+                elif self.MAP[r, c] == '_':
+                    self.initial.append((r, c))
+                    self.initial_is_goal.append(False)
+                elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
+                    self.object_ids[(r, c)] = len(self.object_ids)
+                    if add_obj_to_start and self.MAP[r, c] != "O":
+                        self.initial.append((r, c))
+                        self.initial_is_goal.append(True)
+                elif self.MAP[r, c] == ' ' and add_empty_to_start:
+                    self.initial.append((r, c))
+                    self.initial_is_goal.append(False)
+
+        if self.reset_probability_goals is not None:
+            mask = np.array(self.initial_is_goal)
+            num_goal = np.sum(mask)
+            num_non_goal = len(mask) - num_goal
+
+            if num_goal == 0 or num_non_goal == 0:
+                raise ValueError("Must have both goal and non-goal states when using reset_probability_goals.")
+
+            goal_mass = self.reset_probability_goals
+            non_goal_mass = 1.0 - goal_mass
+
+            probs = np.zeros(len(mask), dtype=np.float32)
+            probs[mask] = goal_mass / num_goal
+            probs[~mask] = non_goal_mass / num_non_goal
+
+            self.init_probabilities = probs
+        else:
+            self.init_probabilities = None
+
+        if init_w:
+            self.w = np.zeros(self.feat_dim)
+
+        self.seed()
+
+    @staticmethod
+    def state_to_array(state):
+        return np.array(state, dtype=np.float32)
+
+    def seed(self, seed=None):
+        if seed is None:
+            seed = np.random.randint(2147483647)
+        self.action_space.seed(seed)
+        self.observation_space.seed(seed)
+
+    def continuous_to_cell(self, continuous_state):
+        """
+        Convert a continuous coordinate to the corresponding grid cell (row, col).
+        Uses floor division; cells are assumed to be arranged in a standard grid.
+        """
+        y, x = continuous_state
+        col = int(x // self.cell_size)
+        row = int(y // self.cell_size)
+        return (row, col)
+
+    def reset(self, state=None):
+        if state is not None:
+            self.state = state
+            self.state_cell = self.continuous_to_cell(state)
+            return self.state_to_array(self.state)
+
+        if self.init_probabilities is not None:
+            index = np.random.choice(len(self.initial), p=self.init_probabilities)
+            self.state_cell = self.initial[index]
+        else:
+            self.state_cell = random.choice(self.initial)
+
+        # Convert cell indices to continuous base coordinates: the top-left corner of the cell
+        cell_base = np.array(self.state_cell, dtype=np.float32) * self.cell_size
+
+        # Generate a random offset for each dimension in the interval [0, self.cell_size)
+        offset = np.random.rand(2) * self.cell_size
+
+        # The continuous state is the cell's base coordinate plus the random offset
+        self.state = cell_base + offset
+
+        return self.state_to_array(self.state)
+
+    def step(self, action):
+        old_state = self.state.copy()
+
+        angle = self.action_angles[action]
+        dx = self.step_size * np.cos(angle)
+        dy = self.step_size * np.sin(angle)
+
+        # Add Gaussian noise to the movement
+        noise = self.np_random.normal(loc=0.0, scale=self.noise_std, size=2)
+        movement = np.array([dx, dy], dtype=np.float32) + noise
+
+        # Compute the new continuous state and clip to the environment boundaries
+        new_state = self.state + movement
+        new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
+
+        # Determine the new grid cell (discrete coordinates) that corresponds to new_state.
+        new_cell = self.continuous_to_cell(new_state)
+
+        # Check if the new cell is occupied (i.e. an obstacle).
+        if new_cell in self.occupied:
+            # The move would cause us to enter an occupied cell; revert to our current (previous) cell.
+            new_cell = self.state_cell
+
+            # Clip the continuous state to remain within the boundaries of the current (safe) cell.
+            # For cell (row, col), the continuous coordinates are in:
+            #   x in [col * cell_size, (col+1) * cell_size)
+            #   y in [row * cell_size, (row+1) * cell_size)
+            # So deduct small epsilon to stay in the range of the cell.
+            epsilon = 1e-6
+            row, col = new_cell
+            cell_min = np.array([col * self.cell_size, row * self.cell_size], dtype=np.float32)
+            cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon], dtype=np.float32)
+            new_state = np.clip(new_state, cell_min, cell_max)
+        else:
+            # The new cell is valid. Update our current cell.
+            self.state_cell = new_cell
+
+        # Update the continuous state.
+        self.state = new_state
+
+        prop = self.MAP[self.state_cell]
+        done = self.is_done(old_state, action, new_state)
+        phi = self.features(old_state, action, new_state)
+        reward = -1  # np.dot(phi, self.w)
+        return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
+
+    def is_done(self, state, action, next_state):
+        raise NotImplementedError
+
+    def features(self, state, action, next_state):
+        raise NotImplementedError
+
+    @property
+    def feat_dim(self):
+        raise NotImplementedError
+
+    @property
+    def a_dim(self):
+        return self.action_space.n
+
+    def render(self, mode='human'):
+        if self.viewer is None:
+            from gym.envs.classic_control import rendering
+            max_x, max_y = self.MAP.shape
+            square_size = 30
+
+            screen_height = square_size * max_x
+            screen_width = square_size * max_y
+            self.viewer = rendering.Viewer(screen_width, screen_height)
+            self.viewer.square_map = {}
+
+            for i in range(max_x):
+                for j in range(max_y):
+                    l = j * square_size
+                    r = l + square_size
+                    t = max_x * square_size - i * square_size
+                    b = t - square_size
+                    square = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
+                    self.viewer.add_geom(square)
+                    self.viewer.square_map[(i, j)] = square
+
+        # Use the subclass's color map if available, otherwise fallback
+        color_map = getattr(self, 'RENDER_COLOR_MAP', {})  # Default to empty dict
+
+        for square_coords in self.viewer.square_map:
+            square = self.viewer.square_map[square_coords]
+
+            # Agent color (yellow)
+            if square_coords == tuple(self.state):
+                color = [1, 1, 0]
+
+            # Check if the square contains an object
+            elif square_coords in self.object_ids.keys():
+                obj_type = self.MAP[square_coords]
+                color = color_map.get(obj_type, [0, 0, 1])  # Default to blue if not mapped
+
+            # Walls
+            elif square_coords in self.occupied:
+                color = [0, 0, 0]
+
+            # Empty space
+            else:
+                color = [1, 1, 1]
+
+            square.set_color(*color)
+
+        self.custom_render(square_map=self.viewer.square_map)
+        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+
+    def get_symbol_at_state(self, state):
+        if state is None:
+            return None
+
+        if isinstance(state, tuple) and len(state) == 2 and all(isinstance(x, int) for x in state):
+            row, col = state
+            if 0 <= row < len(self.MAP) and 0 <= col < len(self.MAP[0]):
+                return self.MAP[row][col]
+            else:
+                raise IndexError(f"State {state} is out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
+        else:
+            cell = self.continuous_to_cell(state)
+            row, col = cell
+            if 0 <= row < len(self.MAP) and 0 <= col < len(self.MAP[0]):
+                return self.MAP[row][col]
+            else:
+                raise IndexError(f"State {state} converts to cell {cell} out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
 
     def get_observation_bounds(self):
         """
@@ -892,6 +1143,13 @@ class OfficeAreasFeatures(GridEnv):
             int: Index of feature under symbol in feature vector phi
         """
         return self.feature_extractor.get_feat_idx(symbol, feat)
+
+
+class OfficeAreasFeaturesContinuous(OfficeAreasFeatures):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0, add_empty_to_start=False, level_name="office_areas_fourier",
+                 min_activation_thresh=0.1, terminate_action=False, term_only_on_term_action=False, reset_probability_goals=None):
+        super().__init__(add_obj_to_start, random_act_prob, add_empty_to_start, level_name, min_activation_thresh, terminate_action,
+                         term_only_on_term_action, reset_probability_goals)
 
 
 class Delivery(GridEnv):
