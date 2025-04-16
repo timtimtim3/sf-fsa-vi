@@ -6,6 +6,18 @@ from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf, normalize_state
 from envs.grid_levels import LEVELS
+from typing import Protocol, Tuple, Dict, Any
+
+
+class GridEnvProtocol(Protocol):
+    object_ids: Dict[Any, Any]
+    terminate_action: bool
+    TERMINATE: int
+
+    def _create_coord_mapping(self) -> None: ...
+    def _create_transition_function(self) -> None: ...
+    def get_observation_bounds(self) -> Tuple[np.ndarray, np.ndarray]: ...
+    def get_symbol_at_state(self, state: Any) -> str: ...
 
 
 class GridEnv(ABC, gym.Env):
@@ -26,7 +38,7 @@ class GridEnv(ABC, gym.Env):
     """
 
     def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False,
-                reset_probability_goals=None):
+                 reset_probability_goals=None):
         """
         Creates a new instance of the coffee environment.
 
@@ -83,8 +95,8 @@ class GridEnv(ABC, gym.Env):
         if init_w:
             self.w = np.zeros(self.feat_dim)
         self.action_space = Discrete(4 if not self.terminate_action else 5)
-        self.observation_space = Box(low=np.zeros(
-            2), high=np.ones(2), dtype=np.float32)
+        height, width = self.MAP.shape
+        self.observation_space = MultiDiscrete([height, width])
         self.seed()
 
     def _create_coord_mapping(self):
@@ -336,7 +348,7 @@ class GridEnvContinuous(ABC, gym.Env):
     metadata = {'render.modes': ['human'], 'video.frames_per_second': 20}
 
     def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False,
-                reset_probability_goals=None, cell_size=1.0, step_size=0.5, noise_std=0.0, action_level=1):
+                 reset_probability_goals=None, cell_size=1.0, step_size=0.5, noise_std=0.0, action_level=1):
         super(GridEnvContinuous, self).__init__()
         self.random_act_prob = random_act_prob
         self.add_obj_to_start = add_obj_to_start
@@ -361,9 +373,9 @@ class GridEnvContinuous(ABC, gym.Env):
         self.TERMINATE = self.n_actions if self.terminate_action else None
 
         # Define the continuous observation space covering the whole map.
-        low = np.array([0.0, 0.0], dtype=np.float32)
-        high = np.array([self.width * self.cell_size, self.height * self.cell_size], dtype=np.float32)
-        self.observation_space = Box(low=low, high=high, dtype=np.float32)
+        self.low = np.array([0.0, 0.0], dtype=np.float32)
+        self.high = np.array([self.width * self.cell_size, self.height * self.cell_size], dtype=np.float32)
+        self.observation_space = Box(low=self.low, high=self.high, dtype=np.float32)
 
         for c in range(self.width):
             for r in range(self.height):
@@ -480,7 +492,8 @@ class GridEnvContinuous(ABC, gym.Env):
             epsilon = 1e-6
             row, col = new_cell
             cell_min = np.array([col * self.cell_size, row * self.cell_size], dtype=np.float32)
-            cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon], dtype=np.float32)
+            cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon],
+                                dtype=np.float32)
             new_state = np.clip(new_state, cell_min, cell_max)
         else:
             # The new cell is valid. Update our current cell.
@@ -555,7 +568,6 @@ class GridEnvContinuous(ABC, gym.Env):
 
             square.set_color(*color)
 
-        self.custom_render(square_map=self.viewer.square_map)
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
     def get_symbol_at_state(self, state):
@@ -574,20 +586,10 @@ class GridEnvContinuous(ABC, gym.Env):
             if 0 <= row < len(self.MAP) and 0 <= col < len(self.MAP[0]):
                 return self.MAP[row][col]
             else:
-                raise IndexError(f"State {state} converts to cell {cell} out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
+                raise IndexError(
+                    f"State {state} converts to cell {cell} out of bounds for MAP of size {len(self.MAP)}x{len(self.MAP[0])}")
 
     def get_observation_bounds(self):
-        """
-        Returns the lower and upper bounds of the observation space as NumPy arrays.
-
-        Supports both gym.spaces.MultiDiscrete and gym.spaces.Box.
-
-        Returns:
-            tuple: (low, high), where both are np.ndarray with the same shape as observations.
-
-        Raises:
-            TypeError: If the observation space is not MultiDiscrete or Box.
-        """
         space = self.observation_space
 
         if isinstance(space, gym.spaces.MultiDiscrete):
@@ -650,9 +652,6 @@ class Office(GridEnv):
 
         self.exit_states = exit_states
 
-        height, width = self.MAP.shape
-        self.observation_space = MultiDiscrete([height, width])
-
     def _create_transition_function(self):
         self._create_transition_function_base()
 
@@ -689,9 +688,6 @@ class OfficeAreas(GridEnv):
             idx += 1
         self.exit_states = exit_states
         self.feat_indices = feat_indices
-
-        height, width = self.MAP.shape
-        self.observation_space = MultiDiscrete([height, width])
 
     def features(self, state, action, next_state):
         s1 = next_state
@@ -773,9 +769,6 @@ class OfficeAreasRBF(GridEnv):
                 cy, cx = center_coords
                 feat_data.append((cy, cx, dist))
             self.FEAT_DATA[symbol] = tuple(feat_data)
-
-        height, width = self.MAP.shape
-        self.observation_space = MultiDiscrete([height, width])
 
     def _create_transition_function(self):
         self._create_transition_function_base()
@@ -1064,8 +1057,6 @@ class OfficeAreasFeatures(GridEnv):
         self._create_transition_function()
 
         self.term_only_on_term_action = term_only_on_term_action
-        height, width = self.MAP.shape
-        self.observation_space = MultiDiscrete([height, width])
         self.low, self.high = self.get_observation_bounds()
 
         exit_states = {}
@@ -1145,11 +1136,159 @@ class OfficeAreasFeatures(GridEnv):
         return self.feature_extractor.get_feat_idx(symbol, feat)
 
 
-class OfficeAreasFeaturesContinuous(OfficeAreasFeatures):
-    def __init__(self, add_obj_to_start=False, random_act_prob=0, add_empty_to_start=False, level_name="office_areas_fourier",
-                 min_activation_thresh=0.1, terminate_action=False, term_only_on_term_action=False, reset_probability_goals=None):
-        super().__init__(add_obj_to_start, random_act_prob, add_empty_to_start, level_name, min_activation_thresh, terminate_action,
-                         term_only_on_term_action, reset_probability_goals)
+class OfficeAreasFeaturesMixin(GridEnvProtocol):
+    def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
+                 level_name="office_areas_fourier", min_activation_thresh=0.1, terminate_action=False,
+                 term_only_on_term_action=False, reset_probability_goals=None, **env_kwargs):
+        """
+        Initialize the OfficeAreasFeaturesContinuous environment.
+
+        Parameters:
+            add_obj_to_start (bool): If True, adds goal states (e.g. 'A', 'B', 'C') to the set of
+                possible starting states for the agent at the beginning of each episode.
+            random_act_prob (float): Probability with which the environment executes a random action instead
+                of the agent's selected action. This introduces stochasticity into the agent's behavior.
+            add_empty_to_start (bool): If True, adds the non-goal (i.e. empty) tiles to the set of possible
+                starting states.
+            level_name (str): Name of the level to load from the `LEVELS` dictionary. The level must be compatible
+                with this environment class (e.g., a Fourier or RBF level for OfficeAreasFeatures).
+            min_activation_thresh (float): Minimum activation threshold used when removing redundant features.
+                If `remove_redundant_features` in level is True, features with maximum activation below this threshold
+                across the entire grid are removed.
+            terminate_action (bool): If True, enables a special "terminate" action that allows the agent to
+                explicitly end the episode.
+            term_only_on_term_action (bool): If True and `terminate_action` is enabled, the environment will
+                only terminate when the agent selects the "terminate" action. If False, entering a goal state
+                from an empty state or a different goal-state may also end the episode automatically. Still, when moving
+                from a goal-state to a state with the same goal (e.g. from 'B' to 'B') will not terminate.
+            reset_probability_goals (float or None): Optional value to bias the probability distribution over
+                initial states. If specified, this value indicates the proportion of initializations that should
+                occur in goal states, with the remainder in non-goal (empty) states. Ignored if `None`.
+        """
+        # Load level data from the external LEVELS dictionary.
+        level = LEVELS[level_name]
+
+        # Set level-specific attributes.
+        self.MAP = deepcopy(level.MAP)
+        self.PHI_OBJ_TYPES = deepcopy(level.PHI_OBJ_TYPES)
+        self.FEAT_DATA = deepcopy(level.FEAT_DATA)
+        self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
+        self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
+        self.FEAT_FN = level.FEAT_FN
+        self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
+            False
+        self.term_only_on_term_action = term_only_on_term_action
+
+        super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
+                         add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action,
+                         reset_probability_goals=reset_probability_goals, **env_kwargs)
+
+        self.low, self.high = self.get_observation_bounds()
+
+        exit_states = {}
+        for s in self.object_ids:
+            symbol = self.MAP[s]
+            key = self.PHI_OBJ_TYPES.index(symbol)
+
+            if key not in exit_states:
+                exit_states[key] = {s}  # Initialize with a set containing s
+            else:
+                exit_states[key].add(s)  # Add new coordinate to the existing set
+        self.exit_states = exit_states
+
+        feature_extractor_kwargs = dict()
+        if hasattr(level, "NORMALIZE_STATES_FOR_FOURIER"):
+            feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
+        if hasattr(level, "NORMALIZE_FEATURES"):
+            feature_extractor_kwargs["normalize_features"] = level.NORMALIZE_FEATURES
+        self.feature_extractor = (
+            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
+                             remove_redundant_features=self.remove_redundant_features, verbose=True,
+                             min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
+                             low=self.low, high=self.high, **feature_extractor_kwargs))
+        self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
+
+        # self.feat_dim depends on feature extractor __init__, so intialize w here
+        self.w = np.zeros(self.feat_dim)
+
+    def is_done(self, state, action, next_state):
+        if self.terminate_action and self.term_only_on_term_action:
+            if action == self.TERMINATE:
+                return True
+            return False
+        elif self.terminate_action:
+            # If we don't enter an Area, we do not terminate
+            if self.is_goal_state(next_state):
+                return False
+
+            # If we enter an Area, we terminate if we came from a different Area (or empty space)
+            last_symbol = self.get_symbol_at_state(state)
+            next_symbol = self.get_symbol_at_state(next_state)
+
+            # If we entered the same Area as the one we came from, e.g. 'B' and 'B', we do not terminate
+            if last_symbol == next_symbol:
+                # Except if the agent selected the Terminate action
+                if action == self.TERMINATE:
+                    return True
+                return False
+            return True  # We terminate if we came from a different Area (or empty space)
+        else:
+            return self.is_goal_state(next_state)
+
+    @property
+    def feat_dim(self):
+        return self.feature_extractor.feat_dim
+
+    def features(self, state, action, next_state):
+        return self.feature_extractor.features(self, state, action, next_state)
+
+    def is_goal_state(self, state):
+        return self.get_symbol_at_state(state) in self.PHI_OBJ_TYPES
+
+    def get_feat_idx(self, symbol, feat):
+        """
+        Get the index in the feature vector returned by self.features of the feat under symbol.
+
+        Parameters:
+            symbol (str): Symbol of the goal area, e.g. 'A', 'B', or 'C'
+            feat (float): Data of the feature we want to know the index of e.g. for RBF: (cx, cy, d) for fourier: (fx, fy)
+
+        Returns:
+            int: Index of feature under symbol in feature vector phi
+        """
+        return self.feature_extractor.get_feat_idx(symbol, feat)
+
+
+class OfficeAreasFeaturesDiscrete(OfficeAreasFeaturesMixin, GridEnv):
+    def __init__(self, *args, **kwargs):
+        # let the mix‑in and GridEnv __init__ run
+        super().__init__(*args, **kwargs)
+
+        # now do the discrete‑only initialization
+        self._create_coord_mapping()
+        self._create_transition_function()
+
+    def _create_transition_function(self):
+        self._create_transition_function_base()
+
+
+class OfficeAreasFeaturesContinuous(OfficeAreasFeaturesMixin, GridEnvContinuous):
+    def __init__(self,
+                 *args,
+                 cell_size=1.0,
+                 step_size=0.5,
+                 noise_std=0.0,
+                 action_level=1,
+                 **kwargs):
+        # gather the continuous‑only args
+        env_kwargs = dict(
+            cell_size=cell_size,
+            step_size=step_size,
+            noise_std=noise_std,
+            action_level=action_level,
+        )
+        # pass everything up into the mix‑in (which forwards to GridEnvContinuous)
+        super().__init__(*args, **{**kwargs, **env_kwargs})
 
 
 class Delivery(GridEnv):

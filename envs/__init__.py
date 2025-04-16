@@ -83,6 +83,32 @@ gym.envs.register(
     max_episode_steps=200,
 )
 
+gym.envs.register(
+    id="OfficeAreasFeaturesDiscrete-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeaturesDiscrete",
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasFeaturesDiscreteEval-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeaturesDiscrete",
+    kwargs={'add_obj_to_start': False, 'add_empty_to_start': False},
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasFeaturesContinuous-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeaturesContinuous",
+    max_episode_steps=200,
+)
+
+gym.envs.register(
+    id="OfficeAreasFeaturesContinuousEval-v0",
+    entry_point="envs.grid_envs:OfficeAreasFeaturesContinuous",
+    kwargs={'add_obj_to_start': False, 'add_empty_to_start': False},
+    max_episode_steps=200,
+)
+
 # ANCHOR: Delivery environments
 
 gym.envs.register(
