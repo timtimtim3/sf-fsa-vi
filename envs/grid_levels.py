@@ -551,6 +551,20 @@ office_areas_rbf_no_edge = LevelDataOfficeAreasRBF(
     QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP
 )
 
+office_areas_fourier_detour = LevelDataOfficeAreasFourier(
+    MAP=np.array([
+        ['A', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['B', 'B', 'B', 'B', 'B', 'B', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    PHI_OBJ_TYPES=['A', 'B'],
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    FREQUENCY_PAIRS=((0, 1),)
+)
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -568,5 +582,6 @@ LEVELS = {
     "office_areas_rbf_no_edge": office_areas_rbf_no_edge,
     "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat,
     "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv,
-    "office_areas_fourier_goals_apart_mirr": office_areas_fourier_goals_apart_mirr
+    "office_areas_fourier_goals_apart_mirr": office_areas_fourier_goals_apart_mirr,
+    "office_areas_fourier_detour": office_areas_fourier_detour
 }

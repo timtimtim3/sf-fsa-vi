@@ -28,6 +28,8 @@ def load_fsa(name: str, env):
         init_fun = fsa_officeAreas1
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
         init_fun = fsa_officeAreasSemiCircle1
+    elif name == "OfficeAreasFeatures-v0-detour":
+        init_fun = fsa_detour
     else:
         raise NameError()
     
@@ -681,8 +683,41 @@ def fsa_officeAreasSemiCircle1(env):
         T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
         T[1, 2, exit_state_idx] = 1  # Then we transition to u2
 
-    # Stay in the terminal state u3
+    # Stay in the terminal state u2
     T[2, 2, :] = 1
+
+    return fsa, T
+
+def fsa_detour(env):
+    # Sequential: Go to A
+
+    symbols_to_phi = {"A": 0,
+                      "B": 1}
+
+    fsa = FiniteStateAutomaton(symbols_to_phi)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+
+    fsa.add_transition("u0", "u1", ["A"])
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    exit_states_idxs = {}
+    for proposition_idx, exit_states_set in env.exit_states.items():
+        exit_states_idxs[proposition_idx] = set()
+        for exit_state in exit_states_set:
+            exit_state_idx = env.coords_to_state[exit_state]
+            exit_states_idxs[proposition_idx].add(exit_state_idx)
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+
+    # Stay in the terminal state u1
+    T[1, 1, :] = 1
 
     return fsa, T
 

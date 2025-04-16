@@ -127,8 +127,9 @@ def main(cfg: DictConfig) -> None:
         # gpi_agent.learn(w=w, **cfg.gpi.learn)
         gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), ValueIteration=ValueIteration,
                         **cfg.gpi.learn)
-        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w) # Do the expectation analytically
-        # Value here is the avereage SF under the current GPI policy under current w (including the policy that was just learned)
+        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w)  # Do the expectation analytically
+        # Value here is the average SF over initial starting states
+        # under the current GPI policy under current w=w (including the policy that was just learned)
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
