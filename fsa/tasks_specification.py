@@ -3,7 +3,7 @@ import numpy as np
 
 
 def load_fsa(name: str, env):
-    if name == "PickupDropoff-v0-task1":    
+    if name == "PickupDropoff-v0-task1":
         init_fun = fsa_pickup_dropoff1
     elif name == "PickupDropoff-v0-task2":    
         init_fun = fsa_pickup_dropoff2
@@ -23,8 +23,7 @@ def load_fsa(name: str, env):
         init_fun = fsa_office3
     elif name == "DoubleSlit-v0-task1":
         init_fun = fsa_double_slit1
-    elif name == "OfficeAreas-v0-task1" or name == "OfficeAreasRBF-v0-task1" or name == "OfficeAreasRBFOnly-v0-task1" \
-            or name == "OfficeAreasFeatures-v0-task1":
+    elif "OfficeAreas" in name and "v0-task1" in name:
         init_fun = fsa_officeAreas1
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
         init_fun = fsa_officeAreasSemiCircle1

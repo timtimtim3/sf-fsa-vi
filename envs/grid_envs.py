@@ -6,18 +6,24 @@ from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf, normalize_state
 from envs.grid_levels import LEVELS
-from typing import Protocol, Tuple, Dict, Any
+from typing import Protocol, Tuple, Dict, Any, TYPE_CHECKING
 
 
-class GridEnvProtocol(Protocol):
-    object_ids: Dict[Any, Any]
-    terminate_action: bool
-    TERMINATE: int
+if TYPE_CHECKING:
+    class GridEnvProtocol(Protocol):
+        object_ids: Dict[Any, Any]
+        terminate_action: bool
+        TERMINATE: int
 
-    def _create_coord_mapping(self) -> None: ...
-    def _create_transition_function(self) -> None: ...
-    def get_observation_bounds(self) -> Tuple[np.ndarray, np.ndarray]: ...
-    def get_symbol_at_state(self, state: Any) -> str: ...
+        def _create_coord_mapping(self) -> None: ...
+        def _create_transition_function(self) -> None: ...
+        def get_observation_bounds(self) -> Tuple[np.ndarray, np.ndarray]: ...
+        def get_symbol_at_state(self, state: Any) -> str: ...
+else:
+    # at runtime this base class is totally empty,
+    # so it won’t shadow any real methods:
+    class GridEnvProtocol:
+        pass
 
 
 class GridEnv(ABC, gym.Env):
@@ -1136,7 +1142,7 @@ class OfficeAreasFeatures(GridEnv):
         return self.feature_extractor.get_feat_idx(symbol, feat)
 
 
-class OfficeAreasFeaturesMixin(GridEnvProtocol):
+class OfficeAreasFeaturesMixin:
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
                  level_name="office_areas_fourier", min_activation_thresh=0.1, terminate_action=False,
                  term_only_on_term_action=False, reset_probability_goals=None, **env_kwargs):
@@ -1218,7 +1224,7 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
             return False
         elif self.terminate_action:
             # If we don't enter an Area, we do not terminate
-            if self.is_goal_state(next_state):
+            if not self.is_goal_state(next_state):
                 return False
 
             # If we enter an Area, we terminate if we came from a different Area (or empty space)
