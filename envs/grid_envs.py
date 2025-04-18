@@ -349,6 +349,9 @@ class GridEnv(ABC, gym.Env):
 
         return low, high
 
+    def get_initial_state_distribution_sample(self):
+        return self.initial
+
 
 class GridEnvContinuous(ABC, gym.Env):
     metadata = {'render.modes': ['human'], 'video.frames_per_second': 20}
@@ -424,6 +427,20 @@ class GridEnvContinuous(ABC, gym.Env):
 
         self.seed()
 
+    def _create_coord_mapping(self):
+        """
+        Create mapping from coordinates to state id and inverse mapping
+        """
+        self.state_to_coords = {}
+        idx = 0
+        for i in range(0, self.MAP.shape[0]):
+            for j in range(0, self.MAP.shape[1]):
+                if self.MAP[i][j] == "X":
+                    continue
+                self.state_to_coords[idx] = (i, j)
+                idx += 1
+        self.coords_to_state = dict(reversed(item) for item in self.state_to_coords.items())
+
     @staticmethod
     def state_to_array(state):
         return np.array(state, dtype=np.float32)
@@ -444,73 +461,100 @@ class GridEnvContinuous(ABC, gym.Env):
         row = int(y // self.cell_size)
         return (row, col)
 
-    def reset(self, state=None):
-        if state is not None:
-            self.state = state
-            self.state_cell = self.continuous_to_cell(state)
-            return self.state_to_array(self.state)
+    def cell_to_continuous_base(self, state_cell):
+        # Convert cell indices to continuous base coordinates: the top-left corner of the cell
+        cell_base = np.array(state_cell, dtype=np.float32) * self.cell_size
+        return cell_base
 
+    def cell_to_continuous_center(self, state_cell):
+        # Convert cell indices to continuous center coordinates: the center of the cell
+        cell_base = self.cell_to_continuous_base(state_cell)
+        return self.continuous_base_to_continuous_center(cell_base)
+
+    def continuous_base_to_continuous_center(self, base):
+        # Convert continuous cell base (top-left corner) to continuous center coordinates: the center of the cell
+        return base + 0.5 * self.cell_size
+
+    def get_initial_state_distribution_sample(self):
+        initial_centers = []
+        for state_cell in self.initial:
+            continuous_center = self.cell_to_continuous_center(state_cell)
+            initial_centers.append(continuous_center)
+        return initial_centers
+
+    def sample_cell_from_initial(self):
         if self.init_probabilities is not None:
             index = np.random.choice(len(self.initial), p=self.init_probabilities)
-            self.state_cell = self.initial[index]
+            state_cell = self.initial[index]
         else:
-            self.state_cell = random.choice(self.initial)
+            state_cell = random.choice(self.initial)
+        return state_cell
 
+    def sample_add_base_offset(self, state_cell):
         # Convert cell indices to continuous base coordinates: the top-left corner of the cell
-        cell_base = np.array(self.state_cell, dtype=np.float32) * self.cell_size
+        cell_base = self.cell_to_continuous_base(state_cell)
 
         # Generate a random offset for each dimension in the interval [0, self.cell_size)
         offset = np.random.rand(2) * self.cell_size
 
         # The continuous state is the cell's base coordinate plus the random offset
-        self.state = cell_base + offset
+        state = cell_base + offset
+        return state
 
+    def reset(self, state=None):
+        if state is not None:
+            self.state = state
+            self.state_cell = self.continuous_to_cell(state)
+        else:
+            self.state_cell = self.sample_cell_from_initial()
+            self.state = self.sample_add_base_offset(self.state_cell)
         return self.state_to_array(self.state)
 
     def step(self, action):
         old_state = self.state.copy()
 
-        angle = self.action_angles[action]
-        dx = self.step_size * np.cos(angle)
-        dy = self.step_size * np.sin(angle)
+        if action != self.TERMINATE:
+            angle = self.action_angles[action]
+            dx = self.step_size * np.cos(angle)
+            dy = self.step_size * np.sin(angle)
 
-        # Add Gaussian noise to the movement
-        noise = self.np_random.normal(loc=0.0, scale=self.noise_std, size=2)
-        movement = np.array([dx, dy], dtype=np.float32) + noise
+            # Add Gaussian noise to the movement
+            noise = np.random.normal(loc=0.0, scale=self.noise_std, size=2)
+            movement = np.array([dx, dy], dtype=np.float32) + noise
 
-        # Compute the new continuous state and clip to the environment boundaries
-        new_state = self.state + movement
-        new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
-
-        # Determine the new grid cell (discrete coordinates) that corresponds to new_state.
-        new_cell = self.continuous_to_cell(new_state)
-
-        # Check if the new cell is occupied (i.e. an obstacle).
-        if new_cell in self.occupied:
-            # The move would cause us to enter an occupied cell; revert to our current (previous) cell.
-            new_cell = self.state_cell
-
-            # Clip the continuous state to remain within the boundaries of the current (safe) cell.
-            # For cell (row, col), the continuous coordinates are in:
-            #   x in [col * cell_size, (col+1) * cell_size)
-            #   y in [row * cell_size, (row+1) * cell_size)
-            # So deduct small epsilon to stay in the range of the cell.
+            # Compute the new continuous state and clip to the environment boundaries
             epsilon = 1e-6
-            row, col = new_cell
-            cell_min = np.array([col * self.cell_size, row * self.cell_size], dtype=np.float32)
-            cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon],
-                                dtype=np.float32)
-            new_state = np.clip(new_state, cell_min, cell_max)
-        else:
-            # The new cell is valid. Update our current cell.
-            self.state_cell = new_cell
+            new_state = self.state + movement
+            new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high - epsilon)
 
-        # Update the continuous state.
-        self.state = new_state
+            # Determine the new grid cell (discrete coordinates) that corresponds to new_state.
+            new_cell = self.continuous_to_cell(new_state)
+
+            # Check if the new cell is occupied (i.e. an obstacle).
+            if new_cell in self.occupied:
+                # The move would cause us to enter an occupied cell; revert to our current (previous) cell.
+                new_cell = self.state_cell
+
+                # Clip the continuous state to remain within the boundaries of the current (safe) cell.
+                # For cell (row, col), the continuous coordinates are in:
+                #   x in [col * cell_size, (col+1) * cell_size)
+                #   y in [row * cell_size, (row+1) * cell_size)
+                # So deduct small epsilon to stay in the range of the cell.
+                row, col = new_cell
+                cell_min = np.array([col * self.cell_size, row * self.cell_size], dtype=np.float32)
+                cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon],
+                                    dtype=np.float32)
+                new_state = np.clip(new_state, cell_min, cell_max)
+            else:
+                # The new cell is valid. Update our current cell.
+                self.state_cell = new_cell
+
+            # Update the continuous state.
+            self.state = new_state
 
         prop = self.MAP[self.state_cell]
-        done = self.is_done(old_state, action, new_state)
-        phi = self.features(old_state, action, new_state)
+        done = self.is_done(old_state, action, self.state)
+        phi = self.features(old_state, action, self.state)
         reward = -1  # np.dot(phi, self.w)
         return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
 
@@ -527,6 +571,10 @@ class GridEnvContinuous(ABC, gym.Env):
     @property
     def a_dim(self):
         return self.action_space.n
+
+    @property
+    def s_dim(self):
+        return len(self.state_to_coords)
 
     def render(self, mode='human'):
         if self.viewer is None:
@@ -877,7 +925,7 @@ class OfficeAreasRBF(GridEnv):
 class FeatureExtractor:
     def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
                  min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False, terminate_action=False,
-                 low=None, high=None, normalize_features=False):
+                 low=None, high=None, normalize_features=False, clip_features=False):
         self._feat_data = feat_data
         self.feat_fn = feat_fn
         self.phi_obj_types = phi_obj_types
@@ -888,6 +936,7 @@ class FeatureExtractor:
         self.norm_weights = None
         self.normalize_features = normalize_features
         self.norm_weights = {}
+        self.clip_features = clip_features
 
         if normalize_states_for_fourier and remove_redundant_features:
             if self.low is None or self.high is None:
@@ -991,6 +1040,9 @@ class FeatureExtractor:
 
             if self.normalize_features:
                 feat_vec = feat_vec * self.norm_weights[symbol]
+
+            if self.clip_features:
+                feat_vec = np.clip(feat_vec, 0.0, 1.0)
 
             feat_indices = self.feat_indices[symbol]
             phi[feat_indices] = feat_vec
@@ -1142,7 +1194,7 @@ class OfficeAreasFeatures(GridEnv):
         return self.feature_extractor.get_feat_idx(symbol, feat)
 
 
-class OfficeAreasFeaturesMixin:
+class OfficeAreasFeaturesMixin(GridEnvProtocol):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
                  level_name="office_areas_fourier", min_activation_thresh=0.1, terminate_action=False,
                  term_only_on_term_action=False, reset_probability_goals=None, **env_kwargs):
@@ -1173,6 +1225,7 @@ class OfficeAreasFeaturesMixin:
         """
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
+        self.level_name = level_name
 
         # Set level-specific attributes.
         self.MAP = deepcopy(level.MAP)
@@ -1184,10 +1237,16 @@ class OfficeAreasFeaturesMixin:
         self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
             False
         self.term_only_on_term_action = term_only_on_term_action
+        self.normalize_features = False if not hasattr(level, "NORMALIZE_FEATURES") else level.NORMALIZE_FEATURES
 
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,
                          add_empty_to_start=add_empty_to_start, init_w=False, terminate_action=terminate_action,
                          reset_probability_goals=reset_probability_goals, **env_kwargs)
+        self._create_coord_mapping()
+        self._configure_clip_features()
+
+        # give subclasses a chance to mass‑modify FEAT_DATA
+        self.FEAT_DATA = self._adjust_feat_data(self.FEAT_DATA)
 
         self.low, self.high = self.get_observation_bounds()
 
@@ -1202,20 +1261,37 @@ class OfficeAreasFeaturesMixin:
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
 
+        self._create_exit_states_centers()
+        exit_states_for_feats = getattr(self, 'exit_states_centers', exit_states)
+
         feature_extractor_kwargs = dict()
         if hasattr(level, "NORMALIZE_STATES_FOR_FOURIER"):
             feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
-        if hasattr(level, "NORMALIZE_FEATURES"):
-            feature_extractor_kwargs["normalize_features"] = level.NORMALIZE_FEATURES
         self.feature_extractor = (
-            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
+            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states_for_feats,
                              remove_redundant_features=self.remove_redundant_features, verbose=True,
                              min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
-                             low=self.low, high=self.high, **feature_extractor_kwargs))
+                             low=self.low, high=self.high, clip_features=self.clip_features,
+                             normalize_features=self.normalize_features, **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
 
         # self.feat_dim depends on feature extractor __init__, so intialize w here
         self.w = np.zeros(self.feat_dim)
+
+    def _create_exit_states_centers(self):
+        # default: discrete has no centers
+        return
+
+    def _adjust_feat_data(self, feat_data):
+        """
+        Hook for subclasses (e.g. continuous) to shift / re‑center their feature definitions.
+        By default, just returns the data unchanged.
+        """
+        return feat_data
+
+    def _configure_clip_features(self):
+        # default: discrete does no clipping
+        self.clip_features = False
 
     def is_done(self, state, action, next_state):
         if self.terminate_action and self.term_only_on_term_action:
@@ -1271,7 +1347,6 @@ class OfficeAreasFeaturesDiscrete(OfficeAreasFeaturesMixin, GridEnv):
         super().__init__(*args, **kwargs)
 
         # now do the discrete‑only initialization
-        self._create_coord_mapping()
         self._create_transition_function()
 
     def _create_transition_function(self):
@@ -1295,6 +1370,32 @@ class OfficeAreasFeaturesContinuous(OfficeAreasFeaturesMixin, GridEnvContinuous)
         )
         # pass everything up into the mix‑in (which forwards to GridEnvContinuous)
         super().__init__(*args, **{**kwargs, **env_kwargs})
+
+    def _create_exit_states_centers(self):
+        # Build a parallel map of continuous coordinates at the centers
+        self.exit_states_centers = dict()
+        for symbol, state_cells_set in self.exit_states.items():
+            self.exit_states_centers[symbol] = set()
+            for cell in state_cells_set:
+                y0, x0 = self.cell_to_continuous_center(cell)
+                self.exit_states_centers[symbol].add((y0, x0))
+
+    def _adjust_feat_data(self, feat_data):
+        if "rbf" not in self.level_name:
+            return feat_data
+
+        centered = {}
+        for symbol, feats in feat_data.items():
+            centered_feats = []
+            for cy, cx, d in feats:
+                y0, x0 = self.cell_to_continuous_center((cy, cx))
+                centered_feats.append((y0, x0, d))
+            centered[symbol] = tuple(centered_feats)
+        return centered
+
+    def _configure_clip_features(self):
+        # if we're normalizing features, continuous Fourier features get clipped, others don’t
+        self.clip_features = (self.normalize_features and "fourier" in self.level_name)
 
 
 class Delivery(GridEnv):

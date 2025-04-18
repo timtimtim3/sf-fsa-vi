@@ -142,13 +142,17 @@ def main(cfg: DictConfig) -> None:
 
     # Create the GPI agent shell (no policies yet)
     def agent_constructor(log_prefix: str):
-        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env)
+        kwargs = {}
+        if using_dqn:
+            kwargs["normalize_inputs"] = True
+        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
                     psis_are_augmented=psis_are_augmented,
-                    planning_constraint=cfg.env.planning_constraint)
+                    planning_constraint=cfg.env.planning_constraint,
+                    ValueIteration=ValueIteration)
 
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES

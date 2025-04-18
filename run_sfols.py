@@ -39,6 +39,7 @@ def main(cfg: DictConfig) -> None:
 
     )
     run.tags = run.tags
+    using_dqn = ("SFDQN" in cfg.algorithm["_target_"])
 
     # Set seeds
     seed_everything(cfg.seed)
@@ -84,13 +85,17 @@ def main(cfg: DictConfig) -> None:
 
     # Define the agent constructor and gpi agent
     def agent_constructor(log_prefix: str):
-        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env)
+        kwargs = {}
+        if using_dqn:
+            kwargs["normalize_inputs"] = True
+        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
                     psis_are_augmented=psis_are_augmented,
-                    planning_constraint=cfg.env.planning_constraint)
+                    planning_constraint=cfg.env.planning_constraint,
+                    ValueIteration=ValueIteration)
 
     # m = number of predicates
     # Need to add the constraint, which sets add some restriction to the extrema weights.
@@ -125,9 +130,8 @@ def main(cfg: DictConfig) -> None:
         print(f"Training {w}")
 
         # gpi_agent.learn(w=w, **cfg.gpi.learn)
-        gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), ValueIteration=ValueIteration,
-                        **cfg.gpi.learn)
-        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w)  # Do the expectation analytically
+        gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), **cfg.gpi.learn)
+        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w, using_dqn=using_dqn)  # Do the expectation analytically
         # Value here is the average SF over initial starting states
         # under the current GPI policy under current w=w (including the policy that was just learned)
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)

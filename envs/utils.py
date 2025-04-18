@@ -76,7 +76,7 @@ def gaussian_rbf_features(x, y, feat_data=((0, 0, 4), (1, 1, 4))):
     Parameters:
         x (float): X-coordinate (can also be np.array for batch).
         y (float): Y-coordinate (same shape as x).
-        feat_data (tuple of tuples): (cx, cy, distance), e.g. : ((0, 0, 4), (1, 1, 4))
+        feat_data (tuple of tuples): (cy, cx, distance), e.g. : ((0, 0, 4), (1, 1, 4))
 
     Returns:
         np.array: Feature vector of shape (2 * len(directions),) or (..., 2 * len(directions))
