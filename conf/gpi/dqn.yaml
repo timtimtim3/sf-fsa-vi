@@ -1,0 +1,9 @@
+init:
+  log: False
+
+learn:
+  total_timesteps: 10000
+  use_gpi: True
+  eval_freq: 500
+  reset_num_timesteps: False
+  reset_learning_starts: True
