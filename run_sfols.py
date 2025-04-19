@@ -10,7 +10,6 @@ from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
 
 from utils.utils import seed_everything 
-from play_sfols import plot_gpi_qvals
 import pickle as pkl
 import numpy as np
 import wandb as wb
@@ -19,7 +18,7 @@ import hydra
 import envs
 import gym
 import os
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, plot_all_fourier
+from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
 EVAL_EPISODES = 20
@@ -137,67 +136,25 @@ def main(cfg: DictConfig) -> None:
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
         gpi_agent.delete_policies(remove_policies)
 
-        # Save Q-tables as .json files
+        gpi_agent.save_policies(base_save_dir)
+
         for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-            q_table_serializable = {
-                str(k): v.tolist() if isinstance(v, np.ndarray) else v
-                for k, v in policy.q_table.items()
-            }
-
-            q_table_path = f"{base_save_dir}/qtable_pol{i}.json"
-            with open(q_table_path, "w") as f:
-                json.dump(q_table_serializable, f, indent=4)
-
-            # plot and save q-vals
             plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
                         save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
                         unique_symbol_for_centers=unique_symbol_for_centers)
 
-    # Save Q-tables as .json files
+    # DONE
+    gpi_agent.save_policies(base_save_dir)
+
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        q_table_serializable = {
-            str(k): v.tolist() if isinstance(v, np.ndarray) else v
-            for k, v in policy.q_table.items()
-        }
-
-        q_table_path = f"{base_save_dir}/qtable_pol{i}.json"
-        with open(q_table_path, "w") as f:
-            json.dump(q_table_serializable, f, indent=4)
-
-        # plot and save q-vals
         plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
                     save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
                     unique_symbol_for_centers=unique_symbol_for_centers)
 
-    # Save policies as .pkl files
-    for i, pi in enumerate(gpi_agent.policies):
-        d = vars(pi)
-        d.pop("replay_buffer")
-        d.pop("env")
-        d.pop("gpi")
-
-        policy_path = f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl"
-        with open(policy_path, "wb") as fp:
-            pkl.dump(d, fp)
-        # wb.save(f"results/sfols/policies/{train_env.unwrapped.spec.id}/discovered_policy_{i + 1}.pkl")
-
-        # Create an artifact
-        artifact = wb.Artifact(
-            name=f"policy_{train_env.unwrapped.spec.id}_{i + 1}",  # Unique artifact name
-            type="policy-data",  # Define the type (model, dataset, etc.)
-            description="Learned policy for the environment"
-        )
-
-        # Add the policy file to the artifact
-        artifact.add_file(policy_path)
-
-        # Log the artifact to the current run (uploading it to the cloud)
-        wb.run.log_artifact(artifact)
-
-        run.summary["policies_obtained"] = len(gpi_agent.policies)
+    run.summary["policies_obtained"] = len(gpi_agent.policies)
 
     tasks = gpi_agent.tasks
-    tasks_path = f"results/sfols/policies/{train_env.unwrapped.spec.id}/tasks.pkl"
+    tasks_path = f"{base_save_dir}/tasks.pkl"
     with open(tasks_path, "wb") as fp:
         pkl.dump(tasks, fp)
 

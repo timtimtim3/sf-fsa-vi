@@ -1,9 +1,5 @@
-import glob
-import json
-import os
 import importlib
 from copy import deepcopy
-
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig
@@ -14,77 +10,11 @@ import hydra
 import envs
 import gym
 import wandb
-import matplotlib.pyplot as plt
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 from sfols.plotting.plotting import (plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals,
-                                     plot_all_fourier)
-import pickle as pkl
+                                     plot_all_fourier, plot_gpi_qvals)
 
 EVAL_EPISODES = 20
-
-
-def load_qtables_from_json(policy_dir: str):
-    """
-    Loads saved qtables from json files
-
-    Parameters:
-        policy_dir (str): The directory where the policy json files are
-    """
-    q_tables = {}  # Dictionary to store loaded policies
-    # List all JSON files in the policy directory that match 'qtable_polX.json'
-    for filename in sorted(os.listdir(policy_dir)):  # Sort ensures policies are loaded in order
-        if filename.startswith("qtable_pol") and filename.endswith(".json"):
-            policy_index = int(filename.split("qtable_pol")[1].split(".json")[0])  # Extract policy index
-            q_table_path = os.path.join(policy_dir, filename)
-
-            with open(q_table_path, "r") as f:
-                q_table_serialized = json.load(f)
-
-            # Convert back: keys from str to tuple, values from list to np.array (if necessary)
-            q_table_original = {
-                eval(k): np.array(v) if isinstance(v, list) else v
-                for k, v in q_table_serialized.items()
-            }
-
-            q_tables[policy_index] = q_table_original  # Store in dict with policy index as key
-    return q_tables
-
-
-def load_qtables_from_pickles(policy_dir: str):
-    """
-    Loads saved qtables from pickle files
-
-    Parameters:
-        policy_dir (str): The directory where the policy pickle files are
-    """
-
-    # Load policy pickle files from the directory
-    pkl_files = sorted(glob.glob(os.path.join(policy_dir, "discovered_policy_*.pkl")))
-    print(f"Loading {len(pkl_files)} policies from {policy_dir}")
-    q_tables = {}
-    for i, pkl_path in enumerate(pkl_files):
-        with open(pkl_path, "rb") as fp:
-            policy_data = pkl.load(fp)
-        q_tables[i] = policy_data["q_table"]
-    return q_tables
-
-
-def plot_gpi_qvals(w_dict, gpi_agent, train_env, activation_data, verbose=True, unique_symbol_for_centers=False):
-    if verbose:
-        print("\nPlotting GPI q-values:")
-    w_arr = np.asarray(list(w_dict.values())).reshape(-1)
-    for (uidx, w) in enumerate(w_dict.values()):
-        if uidx == len(w_dict.keys()) - 1:
-            break
-
-        w_dot = w_arr if gpi_agent.psis_are_augmented else w
-
-        if verbose:
-            print(uidx, np.round(w, 2))
-        actions, policy_indices, qvals = gpi_agent.get_gpi_policy_on_w(w_dot, uidx=uidx)
-        arrow_data = get_plot_arrow_params_from_eval(actions, qvals, train_env)
-        plot_q_vals(w, train_env, arrow_data=arrow_data, activation_data=activation_data,
-                    policy_indices=policy_indices, unique_symbol_for_centers=unique_symbol_for_centers)
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
@@ -92,6 +22,7 @@ def main(cfg: DictConfig) -> None:
     plot = cfg.get("plot", True)
     value_iter_type = cfg.get("value_iter_type", None)
     dir_date_postfix = cfg.get("dir_postfix", None)
+    using_dqn = ("SFDQN" in cfg.algorithm["_target_"])
 
     wandb.init(mode="disabled")
 
@@ -162,12 +93,9 @@ def main(cfg: DictConfig) -> None:
         dir_date_postfix = "-" + dir_date_postfix
         directory += dir_date_postfix
     policy_dir = f"results/sfols/policies/{directory}"
+
     gpi_agent.load_tasks(policy_dir)
-
-    # Load from json since pickles don't work
-    q_tables = load_qtables_from_json(policy_dir)
-
-    gpi_agent.load_policies(policy_dir, q_tables)
+    gpi_agent.load_policies(policy_dir)
 
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape
