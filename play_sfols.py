@@ -115,11 +115,9 @@ def main(cfg: DictConfig) -> None:
     print("Loaded policy weights:")
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
         print(i, np.round(w, 2))
-        if plot:
-            plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
-                        unique_symbol_for_centers=unique_symbol_for_centers)
-            # plot_maxqvals(w, train_env, q_table=policy.q_table, rbf_data=rbf_data)
-            # row 5 col 3, 4
+
+    if plot:
+        gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on

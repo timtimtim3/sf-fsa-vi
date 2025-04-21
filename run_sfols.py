@@ -137,19 +137,18 @@ def main(cfg: DictConfig) -> None:
         gpi_agent.delete_policies(remove_policies)
 
         gpi_agent.save_policies(base_save_dir)
-
-        for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-            plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
-                        save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
-                        unique_symbol_for_centers=unique_symbol_for_centers)
+        gpi_agent.plot_q_vals(activation_data, base_save_dir, unique_symbol_for_centers=unique_symbol_for_centers,
+                              show=False)
 
     # DONE
     gpi_agent.save_policies(base_save_dir)
+    gpi_agent.plot_q_vals(activation_data, base_save_dir, unique_symbol_for_centers=unique_symbol_for_centers,
+                          show=False)
 
-    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
-                    save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
-                    unique_symbol_for_centers=unique_symbol_for_centers)
+    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+    #     plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
+    #                 save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
+    #                 unique_symbol_for_centers=unique_symbol_for_centers)
 
     run.summary["policies_obtained"] = len(gpi_agent.policies)
 

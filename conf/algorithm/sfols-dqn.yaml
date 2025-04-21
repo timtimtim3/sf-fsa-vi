@@ -1,7 +1,7 @@
 _target_: sfols.rl.successor_features.sf_dqn.SFDQN
 #alpha: 0.3
 gamma: 0.95
-#initial_epsilon: 1
-#final_epsilon: 0.1
-#epsilon_decay_steps: 5000
-#learning_starts: 2000
+initial_epsilon: 1
+final_epsilon: 0.1
+epsilon_decay_steps: 5000
+learning_starts: 100

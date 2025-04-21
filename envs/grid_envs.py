@@ -357,7 +357,7 @@ class GridEnvContinuous(ABC, gym.Env):
     metadata = {'render.modes': ['human'], 'video.frames_per_second': 20}
 
     def __init__(self, add_obj_to_start, random_act_prob, add_empty_to_start=False, init_w=True, terminate_action=False,
-                 reset_probability_goals=None, cell_size=1.0, step_size=0.5, noise_std=0.0, action_level=1):
+                 reset_probability_goals=None, cell_size=1.0, step_size=0.8, noise_std=0.05, action_level=1):
         super(GridEnvContinuous, self).__init__()
         self.random_act_prob = random_act_prob
         self.add_obj_to_start = add_obj_to_start
@@ -367,6 +367,7 @@ class GridEnvContinuous(ABC, gym.Env):
         self.initial = []
         self.occupied = set()
         self.object_ids = dict()
+        self.valid_states = set()
         self.terminate_action = terminate_action
         self.reset_probability_goals = reset_probability_goals
         self.initial_is_goal = []
@@ -402,6 +403,7 @@ class GridEnvContinuous(ABC, gym.Env):
                 elif self.MAP[r, c] == ' ' and add_empty_to_start:
                     self.initial.append((r, c))
                     self.initial_is_goal.append(False)
+                self.valid_states.add((r, c))
 
         if self.reset_probability_goals is not None:
             mask = np.array(self.initial_is_goal)
@@ -482,6 +484,16 @@ class GridEnvContinuous(ABC, gym.Env):
             initial_centers.append(continuous_center)
         return initial_centers
 
+    def get_all_valid_states(self):
+        return self.valid_states
+
+    def get_all_valid_continuous_states_centers(self):
+        centers = list()
+        for cell_coords in self.valid_states:
+            cont_center = self.cell_to_continuous_center(cell_coords)
+            centers.append(cont_center)
+        return centers
+
     def sample_cell_from_initial(self):
         if self.init_probabilities is not None:
             index = np.random.choice(len(self.initial), p=self.init_probabilities)
@@ -521,6 +533,12 @@ class GridEnvContinuous(ABC, gym.Env):
             # Add Gaussian noise to the movement
             noise = np.random.normal(loc=0.0, scale=self.noise_std, size=2)
             movement = np.array([dx, dy], dtype=np.float32) + noise
+
+            # Warn & clip any component outside [-1,1]
+            for i, comp in enumerate(movement):
+                if comp < -1.0 or comp > 1.0:
+                    print(f"Warning: movement[{i}] = {comp:.3f} out of [-1,1], clipping")
+            movement = np.clip(movement, -1.0, 1.0)
 
             # Compute the new continuous state and clip to the environment boundaries
             epsilon = 1e-6
@@ -656,6 +674,51 @@ class GridEnvContinuous(ABC, gym.Env):
             raise TypeError(f"Unsupported observation space type: {type(space)}")
 
         return low, high
+
+    def get_arrow_data(self,
+                              centers: list[tuple[float,float]],
+                              actions: np.ndarray,
+                              qvals:   np.ndarray):
+        """
+        Converts a list of continuous‐state centers + actions + qvals
+        into X,Y,U,V,C arrays suitable for plt.quiver.
+
+        Centers → discrete (row,col) via continuous_to_cell, then shift by +0.5
+        so arrows appear in the middle of each cell.
+        """
+        x_pos, y_pos, u, v = [], [], [], []
+
+        for (y_cont, x_cont), a, q in zip(centers, actions, qvals):
+            # 1) discrete cell
+            row, col = self.continuous_to_cell((y_cont, x_cont))
+            # 2) plot coords in center of that cell
+            x0 = col + 0.5
+            y0 = row + 0.5
+
+            # 3) arrow direction: zero for terminate, else unit‐vector by angle
+            if self.TERMINATE is not None and a == self.TERMINATE:
+                dx = 0.0
+                dy = 0.0
+            else:
+                angle = self.action_angles[int(a)]
+                dx, dy = np.cos(angle), np.sin(angle)
+
+            x_pos.append(x0)
+            y_pos.append(y0)
+            u.append(dx)
+            v.append(dy)
+
+        # color vector is just qvals
+        c = np.array(qvals, dtype=np.float32)
+
+        return (
+            np.array(x_pos, dtype=np.float32),
+            np.array(y_pos, dtype=np.float32),
+            np.array(u,     dtype=np.float32),
+            np.array(v,     dtype=np.float32),
+            c,
+            centers
+        )
 
 
 class Office(GridEnv):
