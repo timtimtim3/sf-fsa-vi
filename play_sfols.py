@@ -1,4 +1,5 @@
 import importlib
+import math
 from copy import deepcopy
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
@@ -12,8 +13,8 @@ import gym
 import wandb
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 from sfols.plotting.plotting import (plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals,
-                                     plot_all_fourier, plot_gpi_qvals)
-
+                                     plot_all_fourier, plot_gpi_qvals, plot_trajectories)
+import torch as th
 EVAL_EPISODES = 20
 
 
@@ -109,6 +110,51 @@ def main(cfg: DictConfig) -> None:
     else:
         activation_data = None
 
+    # ROLLOUT
+    w = gpi_agent.tasks[0]
+    policy = gpi_agent.policies[0]
+    # state = train_env.reset()
+    # q_val = policy.q_values(state, w)
+    # action = th.argmax(q_val, dim=1).item()
+    #
+    # action_2 = policy.eval(state, w)
+    #
+    # actions, q_max = policy.best_actions_and_q(state, w)
+    # print(q_val, action)
+    # print(action_2)
+    # print(actions, q_max)
+
+    def get_trajectories(env, policy, n_trajectories=10, max_steps=20, method="random"):
+        if method == "grid":
+            n_sqrt = math.isqrt(n_trajectories)
+            assert n_sqrt * n_sqrt == n_trajectories, (
+                f"When using grid sampling, n_trajectories={n_trajectories} "
+                "must be a perfect square."
+            )
+            states = env.get_grid_states_on_env(base=n_sqrt)
+
+        trajectories = []
+        for n in range(n_trajectories):
+            trajectory = []
+            if method == "random":
+                state = train_env.reset()
+            else:
+                state = train_env.reset(state=states[n])
+            for i in range(max_steps):
+                action, q_val = policy.best_actions_and_q(state, w)
+                new_state, reward, done, _ = train_env.step(action)
+                entry = (state, action, q_val, new_state, reward, done)
+                trajectory.append(entry)
+                state = new_state
+                if done:
+                    break
+            trajectories.append(trajectory)
+        return trajectories
+
+    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=25, method="grid")
+        plot_trajectories(train_env, trajectories)
+
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
@@ -157,6 +203,29 @@ def main(cfg: DictConfig) -> None:
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))
 
+    # DEBUGGING
+    # print(gpi_agent.policies[0].q_table.keys())
+    # print(gpi_agent.policies[0].q_table[(3, 0)])
+
+    # print(gpi_agent.policies[0].get_augmented_psis(uidx=0, state=(3, 0)))
+
+    # state = (3, 0)
+    state = (0, 2)
+    # print("Regular SF:")
+    # for i, policy in enumerate(gpi_agent.policies):
+    #     print(f"Policy: {i}")
+    #     print(f"Up: {np.round(gpi_agent.policies[i].q_table[state][1], 2)}")
+    #     print(f"Right: {np.round(gpi_agent.policies[i].q_table[state][2], 2)}")
+    #
+    # uidx = 0
+    uidx = 1
+    print("Augmented SF:")
+    for i, policy in enumerate(gpi_agent.policies):
+        print(f"Policy: {i}")
+        print(np.round(gpi_agent.policies[i].get_augmented_psis(uidx=uidx, state=state), 3))
+        # print(gpi_agent.policies[i].get_augmented_psis(uidx=0, state=state))
+
+    # ROLLOUT
     # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
     # all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
     #     gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
@@ -165,7 +234,7 @@ def main(cfg: DictConfig) -> None:
     # print(gamma)
     # print(np.round(matrix, 3))
 
-    # Enable this to do GPI like in original paper
+    # Set this to False to do GPI like in original paper
     # gpi_agent.psis_are_augmented = False
 
     plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers)

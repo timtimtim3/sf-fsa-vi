@@ -27,6 +27,7 @@ EVAL_EPISODES = 20
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     value_iter_type = cfg.get("value_iter_type", None)
+    learn_all_extremum = cfg.get("learn_all_extremum", False)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -106,6 +107,21 @@ def main(cfg: DictConfig) -> None:
     shutil.rmtree(base_save_dir, ignore_errors=True)
     os.makedirs(base_save_dir, exist_ok=True)
 
+    # save the full config as YAML
+    OmegaConf.save(
+        config=cfg,
+        f=os.path.join(base_save_dir, "config.yaml"),
+        resolve=True,  # will interpolate any ${...} nodes
+    )
+
+    # convert the config to plain Python containers
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+
+    # write it out as JSON
+    json_path = os.path.join(base_save_dir, "config.json")
+    with open(json_path, "w") as fp:
+        json.dump(cfg_dict, fp, indent=2)
+
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
@@ -133,12 +149,15 @@ def main(cfg: DictConfig) -> None:
         value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w, using_dqn=using_dqn)  # Do the expectation analytically
         # Value here is the average SF over initial starting states
         # under the current GPI policy under current w=w (including the policy that was just learned)
-        remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env)
+        remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env,
+                                           learn_all_extremum=learn_all_extremum)
         gpi_agent.delete_policies(remove_policies)
 
         gpi_agent.save_policies(base_save_dir)
         gpi_agent.plot_q_vals(activation_data, base_save_dir, unique_symbol_for_centers=unique_symbol_for_centers,
                               show=False)
+
+        gpi_agent.save_tasks(base_save_dir, as_json=True, as_pickle=True)
 
     # DONE
     gpi_agent.save_policies(base_save_dir)
@@ -152,10 +171,7 @@ def main(cfg: DictConfig) -> None:
 
     run.summary["policies_obtained"] = len(gpi_agent.policies)
 
-    tasks = gpi_agent.tasks
-    tasks_path = f"{base_save_dir}/tasks.pkl"
-    with open(tasks_path, "wb") as fp:
-        pkl.dump(tasks, fp)
+    gpi_agent.save_tasks(base_save_dir, as_json=True, as_pickle=True)
 
     # Once the low-level policies have been obtained we can retrain the high-level
     # policy and keep track of the results.

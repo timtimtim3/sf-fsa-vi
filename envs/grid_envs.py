@@ -383,8 +383,10 @@ class GridEnvContinuous(ABC, gym.Env):
         self.TERMINATE = self.n_actions if self.terminate_action else None
 
         # Define the continuous observation space covering the whole map.
+        self.epsilon = 1e-6  # define small epsilon
         self.low = np.array([0.0, 0.0], dtype=np.float32)
-        self.high = np.array([self.width * self.cell_size, self.height * self.cell_size], dtype=np.float32)
+        self.high = np.array([self.width * self.cell_size - self.epsilon, self.height * self.cell_size - self.epsilon],
+                             dtype=np.float32)
         self.observation_space = Box(low=self.low, high=self.high, dtype=np.float32)
 
         for c in range(self.width):
@@ -515,24 +517,36 @@ class GridEnvContinuous(ABC, gym.Env):
 
     def reset(self, state=None):
         if state is not None:
+            if not isinstance(state, np.ndarray):
+                state = self.state_to_array(state)
             self.state = state
             self.state_cell = self.continuous_to_cell(state)
         else:
             self.state_cell = self.sample_cell_from_initial()
             self.state = self.sample_add_base_offset(self.state_cell)
-        return self.state_to_array(self.state)
+        return self.state
+
+    def action_to_dx_dy(self, action: int, unit_vector: bool = False):
+        # direction: zero for terminate, else unit‐vector by angle
+        if self.TERMINATE is not None and action == self.TERMINATE:
+            dx, dy = 0.0, 0.0
+        else:
+            angle = self.action_angles[action]
+            dx, dy = np.cos(angle), np.sin(angle)
+
+        if not unit_vector:
+            dx, dy = self.step_size * dx, self.step_size * dy
+        return dx, dy
 
     def step(self, action):
         old_state = self.state.copy()
 
         if action != self.TERMINATE:
-            angle = self.action_angles[action]
-            dx = self.step_size * np.cos(angle)
-            dy = self.step_size * np.sin(angle)
+            dx, dy = self.action_to_dx_dy(action, unit_vector=False)
 
             # Add Gaussian noise to the movement
             noise = np.random.normal(loc=0.0, scale=self.noise_std, size=2)
-            movement = np.array([dx, dy], dtype=np.float32) + noise
+            movement = np.array([dy, dx], dtype=np.float32) + noise
 
             # Warn & clip any component outside [-1,1]
             for i, comp in enumerate(movement):
@@ -541,9 +555,8 @@ class GridEnvContinuous(ABC, gym.Env):
             movement = np.clip(movement, -1.0, 1.0)
 
             # Compute the new continuous state and clip to the environment boundaries
-            epsilon = 1e-6
             new_state = self.state + movement
-            new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high - epsilon)
+            new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
 
             # Determine the new grid cell (discrete coordinates) that corresponds to new_state.
             new_cell = self.continuous_to_cell(new_state)
@@ -559,8 +572,8 @@ class GridEnvContinuous(ABC, gym.Env):
                 #   y in [row * cell_size, (row+1) * cell_size)
                 # So deduct small epsilon to stay in the range of the cell.
                 row, col = new_cell
-                cell_min = np.array([col * self.cell_size, row * self.cell_size], dtype=np.float32)
-                cell_max = np.array([(col + 1) * self.cell_size - epsilon, (row + 1) * self.cell_size - epsilon],
+                cell_min = np.array([row * self.cell_size, col * self.cell_size], dtype=np.float32)
+                cell_max = np.array([(row + 1) * self.cell_size - self.epsilon, (col + 1) * self.cell_size - self.epsilon],
                                     dtype=np.float32)
                 new_state = np.clip(new_state, cell_min, cell_max)
             else:
@@ -696,12 +709,7 @@ class GridEnvContinuous(ABC, gym.Env):
             y0 = row + 0.5
 
             # 3) arrow direction: zero for terminate, else unit‐vector by angle
-            if self.TERMINATE is not None and a == self.TERMINATE:
-                dx = 0.0
-                dy = 0.0
-            else:
-                angle = self.action_angles[int(a)]
-                dx, dy = np.cos(angle), np.sin(angle)
+            dx, dy = self.action_to_dx_dy(a, unit_vector=True)
 
             x_pos.append(x0)
             y_pos.append(y0)
@@ -719,6 +727,26 @@ class GridEnvContinuous(ABC, gym.Env):
             c,
             centers
         )
+
+    def get_grid_states_on_env(self, base: int):
+        assert type(base) is int, f"Expected int, got {type(base).__name__}"
+        n = base * base
+        low, high = self.get_observation_bounds()
+        width, height = high - low
+
+        # divide the span into (base-1) steps so that we get base points including endpoints
+        dx = width / (base - 1) if base > 1 else 0.0
+        dy = height / (base - 1) if base > 1 else 0.0
+
+        states = []
+        for i in range(base):
+            for j in range(base):
+                state = (j * dy, i * dx)
+                state = np.clip(state, self.observation_space.low, self.observation_space.high)
+                state_cell = self.continuous_to_cell(state)
+                if state_cell not in self.occupied:
+                    states.append(state)
+        return states
 
 
 class Office(GridEnv):
@@ -1420,8 +1448,8 @@ class OfficeAreasFeaturesContinuous(OfficeAreasFeaturesMixin, GridEnvContinuous)
     def __init__(self,
                  *args,
                  cell_size=1.0,
-                 step_size=0.5,
-                 noise_std=0.0,
+                 step_size=0.8,
+                 noise_std=0.05,
                  action_level=1,
                  **kwargs):
         # gather the continuous‑only args
