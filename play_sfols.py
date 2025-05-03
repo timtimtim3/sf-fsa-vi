@@ -75,8 +75,6 @@ def main(cfg: DictConfig) -> None:
     # Create the GPI agent shell (no policies yet)
     def agent_constructor(log_prefix: str):
         kwargs = {}
-        if using_dqn:
-            kwargs["normalize_inputs"] = True
         return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
     gpi_agent = GPI(train_env,
@@ -151,9 +149,9 @@ def main(cfg: DictConfig) -> None:
             trajectories.append(trajectory)
         return trajectories
 
-    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=25, method="grid")
-        plot_trajectories(train_env, trajectories)
+    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+    #     trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=25, method="grid")
+    #     plot_trajectories(train_env, trajectories)
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q

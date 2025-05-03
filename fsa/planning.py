@@ -475,8 +475,11 @@ class SFFSAValueIterationAugmented:
             self.indicator_edge_has_proposition[uidx, :] = indicator_edge_has_proposition
 
         for policy in self.gpi.policies:
-            policy.set_augmented_psi_table(self.n_fsa_states, self.feat_dim, self.indicator_edge_has_proposition,
-                                           self.env.env.coords_to_state.keys())
+            if hasattr(policy, 'set_augmented_psi_table'):
+                policy.set_augmented_psi_table(self.n_fsa_states, self.feat_dim, self.indicator_edge_has_proposition,
+                                               self.env.env.coords_to_state.keys())
+            if hasattr(policy, 'set_augmented_psi_attributes'):
+                policy.set_augmented_psi_attributes(self.n_fsa_states, self.indicator_edge_has_proposition)
 
     def traverse(self,
                  weights=None,
