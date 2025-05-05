@@ -149,10 +149,6 @@ def main(cfg: DictConfig) -> None:
             trajectories.append(trajectory)
         return trajectories
 
-    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-    #     trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=25, method="grid")
-    #     plot_trajectories(train_env, trajectories)
-
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
     # -----------------------------------------------------------------------------
@@ -160,8 +156,11 @@ def main(cfg: DictConfig) -> None:
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
         print(i, np.round(w, 2))
 
-    if plot:
-        gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
+    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+        trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
+        plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
+                          unique_symbol_for_centers=unique_symbol_for_centers)
+        gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
