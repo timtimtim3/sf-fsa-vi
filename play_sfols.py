@@ -156,11 +156,12 @@ def main(cfg: DictConfig) -> None:
     for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
         print(i, np.round(w, 2))
 
-    for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-        trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
-        plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
-                          unique_symbol_for_centers=unique_symbol_for_centers)
-        gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
+    if plot:
+        for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
+            # trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
+            # plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
+            #                   unique_symbol_for_centers=unique_symbol_for_centers)
+            gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
@@ -206,21 +207,21 @@ def main(cfg: DictConfig) -> None:
 
     # print(gpi_agent.policies[0].get_augmented_psis(uidx=0, state=(3, 0)))
 
-    # state = (3, 0)
-    state = (0, 2)
+    state = (3, 0)
+    uidx = 0
+    # state = (0, 2)
+    # uidx = 1
+
     # print("Regular SF:")
     # for i, policy in enumerate(gpi_agent.policies):
     #     print(f"Policy: {i}")
     #     print(f"Up: {np.round(gpi_agent.policies[i].q_table[state][1], 2)}")
     #     print(f"Right: {np.round(gpi_agent.policies[i].q_table[state][2], 2)}")
     #
-    # uidx = 0
-    uidx = 1
     print("Augmented SF:")
     for i, policy in enumerate(gpi_agent.policies):
         print(f"Policy: {i}")
         print(np.round(gpi_agent.policies[i].get_augmented_psis(uidx=uidx, state=state), 3))
-        # print(gpi_agent.policies[i].get_augmented_psis(uidx=0, state=state))
 
     # ROLLOUT
     # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
