@@ -565,6 +565,19 @@ office_areas_fourier_detour = LevelDataOfficeAreasFourier(
     FREQUENCY_PAIRS=((0, 1),)
 )
 
+office_areas_detour = LevelDataOfficeAreas(
+    MAP=np.array([
+        ['A', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    PHI_OBJ_TYPES=['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+    RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+)
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -583,5 +596,6 @@ LEVELS = {
     "office_areas_fourier_goals_apart_5_feat": office_areas_fourier_goals_apart_5_feat,
     "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv,
     "office_areas_fourier_goals_apart_mirr": office_areas_fourier_goals_apart_mirr,
-    "office_areas_fourier_detour": office_areas_fourier_detour
+    "office_areas_fourier_detour": office_areas_fourier_detour,
+    "office_areas_detour": office_areas_detour
 }

@@ -23,12 +23,12 @@ def load_fsa(name: str, env):
         init_fun = fsa_office3
     elif name == "DoubleSlit-v0-task1":
         init_fun = fsa_double_slit1
+    elif "detour" in name:
+        init_fun = fsa_detour
     elif "OfficeAreas" in name and "v0-task1" in name:
         init_fun = fsa_officeAreas1
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
         init_fun = fsa_officeAreasSemiCircle1
-    elif name == "OfficeAreasFeatures-v0-detour":
-        init_fun = fsa_detour
     else:
         raise NameError()
     

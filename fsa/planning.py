@@ -431,7 +431,8 @@ class SFFSAValueIterationAugmented:
     def __init__(self,
                  env,
                  gpi,
-                 constraint: Optional[dict] = None) -> None:
+                 constraint: Optional[dict] = None,
+                 subtract_constant=0.0) -> None:
 
         self.env = env
         self.fsa = self.env.fsa
@@ -439,6 +440,7 @@ class SFFSAValueIterationAugmented:
         self.exit_states = self.env.exit_states
         self.all_exit_states = []
         self.constraint = constraint
+        self.subtract_constant = subtract_constant
 
         for key, exit_states in self.exit_states.items():
             self.all_exit_states.extend(list(exit_states))
@@ -527,9 +529,9 @@ class SFFSAValueIterationAugmented:
                         # # Maximize over policies
                         # q_target = max(all_policy_q_vals)
 
-                        q_targets.append(q_target)
+                        q_targets.append(q_target - self.subtract_constant)
                     else:
-                        q_targets.append(1)
+                        q_targets.append(1 - self.subtract_constant)
 
                     phi = self.env.env.features(state=None, action=None if (not hasattr(self.env.env, "terminate_action") or not self.env.env.terminate_action) else self.env.env.TERMINATE,
                                                 next_state=exit_state)

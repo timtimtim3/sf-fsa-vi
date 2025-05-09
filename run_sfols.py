@@ -28,6 +28,7 @@ EVAL_EPISODES = 20
 def main(cfg: DictConfig) -> None:
     value_iter_type = cfg.get("value_iter_type", None)
     learn_all_extremum = cfg.get("learn_all_extremum", False)
+    subtract_constant = cfg.get("subtract_constant", None)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -178,7 +179,10 @@ def main(cfg: DictConfig) -> None:
 
     wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
 
-    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
+    planning_kwargs = {}
+    if subtract_constant is not None:
+        planning_kwargs["subtract_constant"] = subtract_constant
+    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
     W = None
 
     times = []

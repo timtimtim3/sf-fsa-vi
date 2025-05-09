@@ -21,9 +21,14 @@ EVAL_EPISODES = 20
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     plot = cfg.get("plot", True)
+    plot_trajs = cfg.get("plot_trajs", False)
+    plot_qvals = cfg.get("plot_qvals", True)
+    use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
+
     value_iter_type = cfg.get("value_iter_type", None)
     dir_date_postfix = cfg.get("dir_postfix", None)
     using_dqn = ("SFDQN" in cfg.algorithm["_target_"])
+    subtract_constant = cfg.get("subtract_constant", None)
 
     wandb.init(mode="disabled")
 
@@ -91,20 +96,20 @@ def main(cfg: DictConfig) -> None:
     if dir_date_postfix is not None:
         dir_date_postfix = "-" + dir_date_postfix
         directory += dir_date_postfix
-    policy_dir = f"results/sfols/policies/{directory}"
+    base_save_dir = f"results/sfols/policies/{directory}"
 
-    gpi_agent.load_tasks(policy_dir)
-    gpi_agent.load_policies(policy_dir)
+    gpi_agent.load_tasks(base_save_dir)
+    gpi_agent.load_policies(base_save_dir)
 
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape
     if "rbf" in env_level_name:
         activation_data, _ = get_rbf_activation_data(train_env, exclude={"X"})
-        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False, save_dir=policy_dir)
+        plot_all_rbfs(activation_data, grid_size, train_env, skip_non_goal=False, save_dir=base_save_dir)
         unique_symbol_for_centers = True
     elif "fourier" in env_level_name:
         activation_data, _ = get_fourier_activation_data(train_env)
-        plot_all_fourier(activation_data, grid_size, train_env, save_dir=policy_dir)
+        plot_all_fourier(activation_data, grid_size, train_env, save_dir=base_save_dir)
     else:
         activation_data = None
 
@@ -158,10 +163,14 @@ def main(cfg: DictConfig) -> None:
 
     if plot:
         for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-            # trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
-            # plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
-            #                   unique_symbol_for_centers=unique_symbol_for_centers)
-            gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
+            if plot_trajs:
+                print("hi")
+                save_path = f"{base_save_dir}/traj_{i}.png" if base_save_dir is not None else None
+                trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
+                plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
+                                  unique_symbol_for_centers=unique_symbol_for_centers, save_path=save_path)
+            if plot_qvals:
+                gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
@@ -174,7 +183,10 @@ def main(cfg: DictConfig) -> None:
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
     print("\nPerforming value iteration...")
-    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint)
+    planning_kwargs = {}
+    if subtract_constant is not None:
+        planning_kwargs["subtract_constant"] = subtract_constant
+    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
     W = None
     times = []
 
@@ -207,8 +219,8 @@ def main(cfg: DictConfig) -> None:
 
     # print(gpi_agent.policies[0].get_augmented_psis(uidx=0, state=(3, 0)))
 
-    state = (3, 0)
-    uidx = 0
+    # state = (3, 0)
+    # uidx = 0
     # state = (0, 2)
     # uidx = 1
 
@@ -218,10 +230,10 @@ def main(cfg: DictConfig) -> None:
     #     print(f"Up: {np.round(gpi_agent.policies[i].q_table[state][1], 2)}")
     #     print(f"Right: {np.round(gpi_agent.policies[i].q_table[state][2], 2)}")
     #
-    print("Augmented SF:")
-    for i, policy in enumerate(gpi_agent.policies):
-        print(f"Policy: {i}")
-        print(np.round(gpi_agent.policies[i].get_augmented_psis(uidx=uidx, state=state), 3))
+    # print("Augmented SF:")
+    # for i, policy in enumerate(gpi_agent.policies):
+    #     print(f"Policy: {i}")
+    #     print(np.round(gpi_agent.policies[i].get_augmented_psis(uidx=uidx, state=state), 3))
 
     # ROLLOUT
     # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
@@ -232,10 +244,12 @@ def main(cfg: DictConfig) -> None:
     # print(gamma)
     # print(np.round(matrix, 3))
 
-    # Set this to False to do GPI like in original paper
-    # gpi_agent.psis_are_augmented = False
+    # Set this to False in order to do GPI like in original paper
+    if psis_are_augmented and use_regular_gpi_exec:
+        gpi_agent.psis_are_augmented = False
 
-    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
+    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers,
+                   base_dir=base_save_dir)
 
     train_env.close()
     eval_env.close()  # Close the environment when done
