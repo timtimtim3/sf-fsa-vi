@@ -170,7 +170,8 @@ def main(cfg: DictConfig) -> None:
                 plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,
                                   unique_symbol_for_centers=unique_symbol_for_centers, save_path=save_path)
             if plot_qvals:
-                gpi_agent.plot_q_vals(activation_data, unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
+                gpi_agent.plot_q_vals(activation_data, base_dir=base_save_dir,
+                                      unique_symbol_for_centers=unique_symbol_for_centers, policy_id=i)
 
     # -----------------------------------------------------------------------------
     # 2) Play singular policies on the tasks they were trained on
