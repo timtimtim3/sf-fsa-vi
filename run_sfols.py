@@ -1,25 +1,21 @@
-import importlib
-import json
-from copy import deepcopy
-
-from sfols.rl.utils.utils import policy_eval_exact
-from sfols.rl.successor_features.gpi import GPI
-from sfols.rl.successor_features.ols import OLS
-from fsa.tasks_specification import load_fsa
-from omegaconf import DictConfig, OmegaConf
-from envs.wrappers import GridEnvWrapper
-
-from utils.utils import seed_everything 
-import pickle as pkl
-import numpy as np
 import wandb as wb
 import shutil
 import hydra
 import envs
 import gym
 import os
-from sfols.plotting.plotting import plot_q_vals, plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
+import importlib
+from copy import deepcopy
+from sfols.rl.utils.utils import policy_eval_exact
+from sfols.rl.successor_features.gpi import GPI
+from sfols.rl.successor_features.ols import OLS
+from fsa.tasks_specification import load_fsa
+from omegaconf import DictConfig, OmegaConf
+from envs.wrappers import GridEnvWrapper
+from utils.utils import seed_everything, save_config, do_planning
+from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
+
 
 EVAL_EPISODES = 20
 
@@ -29,6 +25,7 @@ def main(cfg: DictConfig) -> None:
     value_iter_type = cfg.get("value_iter_type", None)
     learn_all_extremum = cfg.get("learn_all_extremum", False)
     subtract_constant = cfg.get("subtract_constant", None)
+    use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -81,14 +78,12 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env) # Load FSA
+    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env)  # Load FSA
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
 
     # Define the agent constructor and gpi agent
     def agent_constructor(log_prefix: str):
         kwargs = {}
-        if using_dqn:
-            kwargs["normalize_inputs"] = True
         return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
     gpi_agent = GPI(train_env,
@@ -107,21 +102,7 @@ def main(cfg: DictConfig) -> None:
     base_save_dir = f"results/sfols/policies/{directory}"
     shutil.rmtree(base_save_dir, ignore_errors=True)
     os.makedirs(base_save_dir, exist_ok=True)
-
-    # save the full config as YAML
-    OmegaConf.save(
-        config=cfg,
-        f=os.path.join(base_save_dir, "config.yaml"),
-        resolve=True,  # will interpolate any ${...} nodes
-    )
-
-    # convert the config to plain Python containers
-    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
-
-    # write it out as JSON
-    json_path = os.path.join(base_save_dir, "config.json")
-    with open(json_path, "w") as fp:
-        json.dump(cfg_dict, fp, indent=2)
+    save_config(cfg, base_dir=base_save_dir, type='run')
 
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape
@@ -145,7 +126,6 @@ def main(cfg: DictConfig) -> None:
         w = ols.next_w()
         print(f"Training {w}")
 
-        # gpi_agent.learn(w=w, **cfg.gpi.learn)
         gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), **cfg.gpi.learn)
         value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w, using_dqn=using_dqn)  # Do the expectation analytically
         # Value here is the average SF over initial starting states
@@ -164,50 +144,26 @@ def main(cfg: DictConfig) -> None:
     gpi_agent.save_policies(base_save_dir)
     gpi_agent.plot_q_vals(activation_data, base_save_dir, unique_symbol_for_centers=unique_symbol_for_centers,
                           show=False)
-
-    # for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
-    #     plot_q_vals(w, train_env, q_table=policy.q_table, activation_data=activation_data,
-    #                 save_path=f"{base_save_dir}/qvals_pol{i}.png", show=False,
-    #                 unique_symbol_for_centers=unique_symbol_for_centers)
-
-    run.summary["policies_obtained"] = len(gpi_agent.policies)
-
     gpi_agent.save_tasks(base_save_dir, as_json=True, as_pickle=True)
 
     # Once the low-level policies have been obtained we can retrain the high-level
     # policy and keep track of the results.
-
+    run.summary["policies_obtained"] = len(gpi_agent.policies)
     wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
 
     planning_kwargs = {}
     if subtract_constant is not None:
         planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W = None
+    W = do_planning(planning, gpi_agent, eval_env, eval_episodes=EVAL_EPISODES, use_regular_gpi_exec=True, wb=wb)
 
-    times = []
+    # # Render
+    # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 
-    for j in range(50):
-
-        W, time = planning.traverse(W, num_iters = 1)
-        times.append(time)
-        rewards = []
-        for _ in range(EVAL_EPISODES):
-            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-            rewards.append(acc_reward)
-            
-        log_dict = {"evaluation/acc_reward": np.average(rewards),
-                    "evaluation/iter": j,
-                    "evaluation/time": np.sum(times)}
-        
-        wb.log(log_dict)
-
-    acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
-
-    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers)
+    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers,
+                   base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
 
     wb.finish()
-
 
 
 if __name__ == "__main__":

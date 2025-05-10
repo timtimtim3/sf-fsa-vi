@@ -509,8 +509,9 @@ class SFFSAValueIterationAugmented:
 
                 for i, exit_state in enumerate(self.all_exit_states):
                     if not self.fsa.is_terminal(u):
-                        action, policy_index, q_target = self.gpi.eval_planning(exit_state, W, uidx=uidx,
-                                                                                return_q_val=True, return_policy_index=True)
+                        action, policy_index, q_target \
+                            = self.gpi.eval_planning(exit_state, W, uidx=uidx, return_q_val=True,
+                                                     return_policy_index=True, psis_are_augmented=True)
                         # all_policy_q_vals = []
                         # for policy in self.gpi.policies:
                         #     psis = policy.q_table[exit_state]

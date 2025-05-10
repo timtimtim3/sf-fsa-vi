@@ -1,20 +1,19 @@
+import numpy as np
+import wandb as wb
+import hydra
+import gym
 import importlib
-import math
 from copy import deepcopy
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig
-from envs.wrappers import GridEnvWrapper
-import numpy as np
-import wandb as wb
-import hydra
 import envs
-import gym
-import wandb
+from envs.wrappers import GridEnvWrapper
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
-from sfols.plotting.plotting import (plot_q_vals, plot_all_rbfs, get_plot_arrow_params_from_eval, plot_maxqvals,
-                                     plot_all_fourier, plot_gpi_qvals, plot_trajectories)
-import torch as th
+from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals, plot_trajectories
+from utils.utils import save_config, do_planning
+
+
 EVAL_EPISODES = 20
 
 
@@ -23,14 +22,14 @@ def main(cfg: DictConfig) -> None:
     plot = cfg.get("plot", True)
     plot_trajs = cfg.get("plot_trajs", False)
     plot_qvals = cfg.get("plot_qvals", True)
-    use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
 
     value_iter_type = cfg.get("value_iter_type", None)
-    dir_date_postfix = cfg.get("dir_postfix", None)
-    using_dqn = ("SFDQN" in cfg.algorithm["_target_"])
     subtract_constant = cfg.get("subtract_constant", None)
+    use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
 
-    wandb.init(mode="disabled")
+    dir_date_postfix = cfg.get("dir_postfix", None)
+
+    wb.init(mode="disabled")
 
     # Create the train and eval environments
     env_params = dict(cfg.env)
@@ -97,6 +96,7 @@ def main(cfg: DictConfig) -> None:
         dir_date_postfix = "-" + dir_date_postfix
         directory += dir_date_postfix
     base_save_dir = f"results/sfols/policies/{directory}"
+    save_config(cfg, base_dir=base_save_dir, type='play')
 
     gpi_agent.load_tasks(base_save_dir)
     gpi_agent.load_policies(base_save_dir)
@@ -126,33 +126,6 @@ def main(cfg: DictConfig) -> None:
     # print(q_val, action)
     # print(action_2)
     # print(actions, q_max)
-
-    def get_trajectories(env, policy, n_trajectories=10, max_steps=20, method="random"):
-        if method == "grid":
-            n_sqrt = math.isqrt(n_trajectories)
-            assert n_sqrt * n_sqrt == n_trajectories, (
-                f"When using grid sampling, n_trajectories={n_trajectories} "
-                "must be a perfect square."
-            )
-            states = env.get_grid_states_on_env(base=n_sqrt)
-
-        trajectories = []
-        for n in range(n_trajectories):
-            trajectory = []
-            if method == "random":
-                state = train_env.reset()
-            else:
-                state = train_env.reset(state=states[n])
-            for i in range(max_steps):
-                action, q_val = policy.best_actions_and_q(state, w)
-                new_state, reward, done, _ = train_env.step(action)
-                entry = (state, action, q_val, new_state, reward, done)
-                trajectory.append(entry)
-                state = new_state
-                if done:
-                    break
-            trajectories.append(trajectory)
-        return trajectories
 
     # -----------------------------------------------------------------------------
     # 2) PLOT ARROWS MAX Q
@@ -188,28 +161,7 @@ def main(cfg: DictConfig) -> None:
     if subtract_constant is not None:
         planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W = None
-    times = []
-
-    for j in range(50):
-        W, time = planning.traverse(W, num_iters=1)
-        times.append(time)
-
-        rewards = []
-        for _ in range(EVAL_EPISODES):
-            acc_reward = gpi_agent.evaluate(gpi_agent, eval_env, W)
-            rewards.append(acc_reward)
-
-        if len(rewards) > 0:
-            avg_reward = np.mean(rewards)
-        else:
-            avg_reward = 0
-
-        log_dict = {
-            "evaluation/acc_reward": avg_reward,
-            "evaluation/iter": j,
-            "evaluation/time": np.sum(times)
-        }
+    W = do_planning(planning, gpi_agent, eval_env, eval_episodes=EVAL_EPISODES, use_regular_gpi_exec=True)
 
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))
@@ -245,12 +197,8 @@ def main(cfg: DictConfig) -> None:
     # print(gamma)
     # print(np.round(matrix, 3))
 
-    # Set this to False in order to do GPI like in original paper
-    if psis_are_augmented and use_regular_gpi_exec:
-        gpi_agent.psis_are_augmented = False
-
     plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers,
-                   base_dir=base_save_dir)
+                   base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
 
     train_env.close()
     eval_env.close()  # Close the environment when done
