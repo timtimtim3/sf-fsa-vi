@@ -357,6 +357,12 @@ class GridEnv(ABC, gym.Env):
     def get_state_id(self, state):
         return self.coords_to_state[state]
 
+    def get_planning_exit_states(self):
+        """
+        Returns a dictionary of exit states for planning (the grid cells of all exit state cells)
+        """
+        return self.exit_states
+
     def get_arrow_data(self, actions: np.ndarray, qvals: np.ndarray, states: List[Tuple[int, int]]):
         x_pos = []
         y_pos = []
@@ -533,7 +539,22 @@ class GridEnvContinuous(ABC, gym.Env):
         return centers
 
     def get_planning_states(self):
+        """
+        Returns a list of planning states (the continuous centers of all grid cells)
+        """
         return self.get_all_valid_continuous_states_centers()
+
+    def get_planning_exit_states(self):
+        """
+        Returns a dictionary of exit states for planning (the continuous centers of all exit state cells)
+        """
+        continuous_exit_states_centers = {}
+        for symbol, exit_states in self.exit_states.items():
+            continuous_exit_states_centers[symbol] = set()
+            for exit_state in exit_states:
+                cont_exit_state_centre = self.cell_to_continuous_center(exit_state)
+                continuous_exit_states_centers[symbol].add(tuple(cont_exit_state_centre))
+        return continuous_exit_states_centers
 
     def get_state_id(self, state):
         state_cell = self.continuous_to_cell(state)

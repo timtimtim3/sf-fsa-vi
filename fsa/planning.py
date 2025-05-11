@@ -437,7 +437,7 @@ class SFFSAValueIterationAugmented:
         self.env = env
         self.fsa = self.env.fsa
         self.gpi = gpi
-        self.exit_states = self.env.exit_states
+        self.exit_states = self.env.env.get_planning_exit_states()
         self.all_exit_states = []
         self.constraint = constraint
         self.subtract_constant = subtract_constant
