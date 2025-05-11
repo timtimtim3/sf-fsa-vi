@@ -575,7 +575,14 @@ office_areas_detour = LevelDataOfficeAreas(
     ]),
     PHI_OBJ_TYPES=['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
     RENDER_COLOR_MAP=office_areas.RENDER_COLOR_MAP,
-    QVAL_COLOR_MAP=office_areas.QVAL_COLOR_MAP,
+    QVAL_COLOR_MAP={
+        " ": 3,  # Empty Space
+        "_": 3,  # Start location
+        "A": 0,  # Object A
+
+        # unpack B1-B7 keys
+        **{f"B{i + 1}": 1 for i in range(7)},
+    }
 )
 
 # Dictionary mapping level names to LevelData objects.

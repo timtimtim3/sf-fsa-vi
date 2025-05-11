@@ -15,23 +15,21 @@ class GridEnvWrapper(gym.Env):
         self.feat_dim = env.feat_dim
         
     def get_state(self):
-
-        return (self.fsa_state, tuple(self.env.state))
+        return self.fsa_state, tuple(self.env.state)
 
     def reset(self):
-
         self.fsa_state = self.fsa_init_state
         self.state = tuple(self.env.reset())
         
-        return (self.fsa_state, self.state), {"proposition": self.env.MAP[self.state]}
+        return (self.fsa_state, self.state), {"proposition": self.env.get_symbol_at_state(self.state)}
 
     def step(self, action):
         """
             Low-level and high-level transition
         """
-        _, _ ,  _ , phi = self.env.step(action) 
+        _, _ ,  _ , phi = self.env.step(action)
         state = self.env.state
-        state_index = self.env.coords_to_state[state]
+        state_index = self.env.get_state_id(state)
 
         fsa_state_index = self.fsa.states.index(self.fsa_state)
 

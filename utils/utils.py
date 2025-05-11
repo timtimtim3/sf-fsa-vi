@@ -38,11 +38,12 @@ def save_config(cfg, base_dir, type='run'):
         json.dump(cfg_dict, fp, indent=2)
 
 
-def do_planning(planning, gpi_agent, eval_env, wb=None, eval_episodes=50, use_regular_gpi_exec=True):
+def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True):
     W = None
     times = []
 
-    for j in range(50):
+    for j in range(n_iters):
+        print(f'Iter: {j}')
         W, time = planning.traverse(W, num_iters=1)
         times.append(time)
 

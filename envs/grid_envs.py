@@ -6,8 +6,7 @@ from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf, normalize_state
 from envs.grid_levels import LEVELS
-from typing import Protocol, Tuple, Dict, Any, TYPE_CHECKING
-
+from typing import Protocol, Tuple, Dict, Any, TYPE_CHECKING, Union, List
 
 if TYPE_CHECKING:
     class GridEnvProtocol(Protocol):
@@ -16,8 +15,11 @@ if TYPE_CHECKING:
         TERMINATE: int
 
         def _create_coord_mapping(self) -> None: ...
+
         def _create_transition_function(self) -> None: ...
+
         def get_observation_bounds(self) -> Tuple[np.ndarray, np.ndarray]: ...
+
         def get_symbol_at_state(self, state: Any) -> str: ...
 else:
     # at runtime this base class is totally empty,
@@ -315,7 +317,7 @@ class GridEnv(ABC, gym.Env):
         if state is None:
             return None
 
-        if isinstance(state, tuple) and len(state) == 2 and all(isinstance(x, int) for x in state):
+        if isinstance(state, tuple) and len(state) == 2:
             row, col = state
             if 0 <= row < len(self.MAP) and 0 <= col < len(self.MAP[0]):
                 return self.MAP[row][col]
@@ -351,6 +353,40 @@ class GridEnv(ABC, gym.Env):
 
     def get_initial_state_distribution_sample(self):
         return self.initial
+
+    def get_state_id(self, state):
+        return self.coords_to_state[state]
+
+    def get_arrow_data(self, actions: np.ndarray, qvals: np.ndarray, states: List[Tuple[int, int]]):
+        x_pos = []
+        y_pos = []
+        x_dir = []
+        y_dir = []
+        color = []
+        coords_list = []
+
+        for coords, a, q in zip(states, actions, qvals):
+            x_d = y_d = 0
+            if a == self.DOWN:
+                y_d = 1
+            elif a == self.UP:
+                y_d = -1
+            elif a == self.RIGHT:
+                x_d = 1
+            elif a == self.LEFT:
+                x_d = -1
+
+            x_pos.append(coords[1] + 0.5)
+            y_pos.append(coords[0] + 0.5)
+            x_dir.append(x_d)
+            y_dir.append(y_d)
+            color.append(q)
+            coords_list.append(coords)
+        # down, up , right, left
+        return np.array(x_pos), np.array(y_pos), np.array(x_dir), np.array(y_dir), np.array(color), coords_list
+
+    def get_planning_states(self):
+        return self.coords_to_state.keys()
 
 
 class GridEnvContinuous(ABC, gym.Env):
@@ -496,6 +532,13 @@ class GridEnvContinuous(ABC, gym.Env):
             centers.append(cont_center)
         return centers
 
+    def get_planning_states(self):
+        return self.get_all_valid_continuous_states_centers()
+
+    def get_state_id(self, state):
+        state_cell = self.continuous_to_cell(state)
+        return self.coords_to_state[state_cell]
+
     def sample_cell_from_initial(self):
         if self.init_probabilities is not None:
             index = np.random.choice(len(self.initial), p=self.init_probabilities)
@@ -573,8 +616,9 @@ class GridEnvContinuous(ABC, gym.Env):
                 # So deduct small epsilon to stay in the range of the cell.
                 row, col = new_cell
                 cell_min = np.array([row * self.cell_size, col * self.cell_size], dtype=np.float32)
-                cell_max = np.array([(row + 1) * self.cell_size - self.epsilon, (col + 1) * self.cell_size - self.epsilon],
-                                    dtype=np.float32)
+                cell_max = np.array(
+                    [(row + 1) * self.cell_size - self.epsilon, (col + 1) * self.cell_size - self.epsilon],
+                    dtype=np.float32)
                 new_state = np.clip(new_state, cell_min, cell_max)
             else:
                 # The new cell is valid. Update our current cell.
@@ -688,10 +732,8 @@ class GridEnvContinuous(ABC, gym.Env):
 
         return low, high
 
-    def get_arrow_data(self,
-                              centers: list[tuple[float,float]],
-                              actions: np.ndarray,
-                              qvals:   np.ndarray):
+    def get_arrow_data(self, actions: np.ndarray, qvals: np.ndarray,
+                       states: Union[None, List[Tuple[float, float]]] = None):
         """
         Converts a list of continuous‐state centers + actions + qvals
         into X,Y,U,V,C arrays suitable for plt.quiver.
@@ -699,9 +741,12 @@ class GridEnvContinuous(ABC, gym.Env):
         Centers → discrete (row,col) via continuous_to_cell, then shift by +0.5
         so arrows appear in the middle of each cell.
         """
+
+        if states is None:
+            states = self.get_all_valid_continuous_states_centers()
         x_pos, y_pos, u, v = [], [], [], []
 
-        for (y_cont, x_cont), a, q in zip(centers, actions, qvals):
+        for (y_cont, x_cont), a, q in zip(states, actions, qvals):
             # 1) discrete cell
             row, col = self.continuous_to_cell((y_cont, x_cont))
             # 2) plot coords in center of that cell
@@ -722,10 +767,10 @@ class GridEnvContinuous(ABC, gym.Env):
         return (
             np.array(x_pos, dtype=np.float32),
             np.array(y_pos, dtype=np.float32),
-            np.array(u,     dtype=np.float32),
-            np.array(v,     dtype=np.float32),
+            np.array(u, dtype=np.float32),
+            np.array(v, dtype=np.float32),
             c,
-            centers
+            states
         )
 
     def get_grid_states_on_env(self, base: int):

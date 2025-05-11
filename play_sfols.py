@@ -14,7 +14,7 @@ from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qv
 from utils.utils import save_config, do_planning
 
 
-EVAL_EPISODES = 20
+EVAL_EPISODES = 5
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
