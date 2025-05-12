@@ -394,6 +394,9 @@ class GridEnv(ABC, gym.Env):
     def get_planning_states(self):
         return self.coords_to_state.keys()
 
+    def reward(self, state):
+        return -1
+
 
 class GridEnvContinuous(ABC, gym.Env):
     metadata = {'render.modes': ['human'], 'video.frames_per_second': 20}

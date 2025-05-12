@@ -6,7 +6,7 @@ eval_freq: 500
 init_epsilon :  1
 final_epsilon : 0.2
 warmup_steps : 1000 
-epsilon_decaying_steps : 10000
+#epsilon_decaying_steps : 10000
 learning_steps: 30000
-init_lr: 0.25
-final_lr: 0.25
+#init_lr: 0.25
+#final_lr: 0.25
