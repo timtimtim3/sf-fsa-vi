@@ -852,6 +852,17 @@ class Office(GridEnv):
         " ": [1, 1, 1],  # White (Empty Space)
         "_": [1, 1, 1],  # White (Starting Area)
     }
+    QVAL_COLOR_MAP = {
+        "C1": 0,
+        "C2": 0,
+        "O1": 1,
+        "O2": 1,
+        "M1": 2,
+        "M2": 2,
+        "X": 4,
+        " ": 3,
+        "_": 3,
+    }
 
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False):
         super().__init__(add_obj_to_start=add_obj_to_start, random_act_prob=random_act_prob,

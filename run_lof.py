@@ -47,7 +47,7 @@ def main(cfg: DictConfig) -> None:
 
     lof.learn_options()
 
-    # Once the base options have been learned, we can retrain the policy and keep track 
+    # Once the base options have been learned, we can retrain the policy and keep track
     # of the results for the readaptation (planning), results
     lof.train_metapolicy(record=True)
 
@@ -56,6 +56,8 @@ def main(cfg: DictConfig) -> None:
     lof.save(f"results/lof/{run.name}")
 
     for oidx, option in enumerate(lof.options):
+        print(oidx)
+        print(option)
         Vgt = lof.gt_options[oidx].Q.max(axis=1)
         V = option.Q.max(axis=1)
         errors = np.abs(Vgt - V).tolist()
