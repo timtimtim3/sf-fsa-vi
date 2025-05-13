@@ -34,7 +34,7 @@ def main(cfg: DictConfig) -> None:
     # Create the train and eval environments
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
-    env_level_name = env_params["level_name"]
+    env_level_name = "" if "level_name" not in env_params else env_params["level_name"]
 
     alg_params = dict(cfg.algorithm)
     gamma = alg_params.pop("gamma")

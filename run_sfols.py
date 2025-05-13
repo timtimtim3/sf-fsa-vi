@@ -45,7 +45,7 @@ def main(cfg: DictConfig) -> None:
     # Create the train and eval environments
     env_params = dict(cfg.env)
     env_name = env_params.pop("env_name")
-    env_level_name = env_params["level_name"]
+    env_level_name = "" if "level_name" not in env_params else env_params["level_name"]
 
     train_env_kwargs = deepcopy(env_params)
     train_env_kwargs.pop("restriction")

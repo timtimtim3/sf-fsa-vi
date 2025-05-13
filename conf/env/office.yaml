@@ -1,3 +1,5 @@
 env_name: "Office-v0"
 planning_constraint: null
 restriction: null
+add_obj_to_start: True
+add_empty_to_start: False
