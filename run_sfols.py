@@ -26,6 +26,7 @@ def main(cfg: DictConfig) -> None:
     learn_all_extremum = cfg.get("learn_all_extremum", False)
     subtract_constant = cfg.get("subtract_constant", None)
     use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
+    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -78,7 +79,8 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env)  # Load FSA
+    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
+                      fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
 
     # Define the agent constructor and gpi agent

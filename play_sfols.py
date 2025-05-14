@@ -26,6 +26,7 @@ def main(cfg: DictConfig) -> None:
     value_iter_type = cfg.get("value_iter_type", None)
     subtract_constant = cfg.get("subtract_constant", None)
     use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
+    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
 
     dir_date_postfix = cfg.get("dir_postfix", None)
 
@@ -71,7 +72,8 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env)  # Load FSA
+    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
+                      fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
     n_fsa_states = len(fsa.states)
     feat_dim = train_env.feat_dim

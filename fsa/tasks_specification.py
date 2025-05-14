@@ -2,7 +2,12 @@ from .fsa import FiniteStateAutomaton
 import numpy as np
 
 
-def load_fsa(name: str, env):
+def load_fsa(name: str, env, fsa_symbols_from_env=False):
+    symbols_to_phi = None
+    if fsa_symbols_from_env:
+        symbols = env.PHI_OBJ_TYPES
+        symbols_to_phi = {symbol: i for i, symbol in enumerate(symbols)}
+
     if name == "PickupDropoff-v0-task1":
         init_fun = fsa_pickup_dropoff1
     elif name == "PickupDropoff-v0-task2":    
@@ -31,8 +36,11 @@ def load_fsa(name: str, env):
         init_fun = fsa_officeAreasSemiCircle1
     else:
         raise NameError()
-    
-    g = init_fun(env)
+
+    kwargs = {}
+    if symbols_to_phi is not None:
+        kwargs["symbols_to_phi"] = symbols_to_phi
+    g = init_fun(env, **kwargs)
     
     return g
 
@@ -593,13 +601,15 @@ def fsa_office3(env):
     return fsa, T
 
 
-def fsa_officeAreas1(env):
+def fsa_officeAreas1(env, symbols_to_phi=None):
     # Sequential: Go to A, then B, then C.
     # A -> B -> C
 
-    symbols_to_phi = {"A": 0,
-                      "B": 1,
-                      "C": 2}
+    if symbols_to_phi is None:
+        symbols_to_phi = {"A": 0,
+                          "B": 1,
+                          "C": 2}
+    symbols = list(symbols_to_phi.keys())
 
     fsa = FiniteStateAutomaton(symbols_to_phi)
 
@@ -608,9 +618,9 @@ def fsa_officeAreas1(env):
     fsa.add_state("u2")
     fsa.add_state("u3")
 
-    fsa.add_transition("u0", "u1", ["A"])
-    fsa.add_transition("u1", "u2", ["B"])
-    fsa.add_transition("u2", "u3", ["C"])
+    fsa.add_transition("u0", "u1", [symbols[0]])
+    fsa.add_transition("u1", "u2", [symbols[1]])
+    fsa.add_transition("u2", "u3", [symbols[2]])
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 

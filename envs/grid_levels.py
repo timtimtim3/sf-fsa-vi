@@ -178,6 +178,39 @@ class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
         self.FEAT_DATA = {symbol: deepcopy(self.FREQUENCY_PAIRS) for symbol in self.PHI_OBJ_TYPES}
 
 
+original_office_areas = LevelDataOfficeAreas(
+    MAP=np.array([
+        [' ', ' ', 'C', ' ', ' ', 'X', ' ', 'C', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        ['M', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', 'O', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', 'X', 'X', ' ', ' ', 'X', ' ', ' ', 'X', 'X', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['O', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'M'],
+    ]),
+    PHI_OBJ_TYPES=['C', 'M', 'O'],
+    RENDER_COLOR_MAP={
+        "C": [0.6, 0.3, 0],  # Brown
+        "M": [1, 0.6, 0],  # Orange
+        "O": [0.5, 0, 0.5],  # Purple
+        "X": [0, 0, 0],  # Black (Walls)
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    },
+    QVAL_COLOR_MAP={
+        "X": 4,  # Walls
+        " ": 3,  # Empty Space
+        "_": 3,  # Start location (same as empty space)
+        "C": 0,  # Object C
+        "M": 1,  # Object M
+        "O": 2,  # Object O
+    }
+)
+
 office_areas = LevelDataOfficeAreas(
     MAP=np.array([
         [' ', ' ', ' ', 'B', 'B', 'X', 'C', ' ', ' ', ' ', ' ', ' ', ' '],
@@ -585,6 +618,26 @@ office_areas_detour = LevelDataOfficeAreas(
     }
 )
 
+original_office_areas_rbf = LevelDataOfficeAreasRBF(
+    MAP=original_office_areas.MAP,
+    PHI_OBJ_TYPES=original_office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=original_office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=original_office_areas.QVAL_COLOR_MAP,
+    RBF_MAP=np.array([
+        [' ', ' ', 'C_RBF_1', ' ', ' ', 'X', ' ', 'C_RBF_1', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        ['M_RBF_1', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', 'O_RBF_1', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', 'X', 'X', ' ', ' ', 'X', ' ', ' ', 'X', 'X', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['O_RBF_1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'M_RBF_1'],
+    ]),
+)
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -604,5 +657,7 @@ LEVELS = {
     "office_areas_fourier_goals_apart_inv": office_areas_fourier_goals_apart_inv,
     "office_areas_fourier_goals_apart_mirr": office_areas_fourier_goals_apart_mirr,
     "office_areas_fourier_detour": office_areas_fourier_detour,
-    "office_areas_detour": office_areas_detour
+    "office_areas_detour": office_areas_detour,
+    "original_office_areas": original_office_areas,
+    "original_office_areas_rbf": original_office_areas_rbf
 }
