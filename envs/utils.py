@@ -38,6 +38,7 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
                     coords = (y, x)
                     if exclude and env.MAP[y, x] in exclude:
                         continue
+                    y_centered, x_centered = y, x
                     if hasattr(env, "continuous_base_to_continuous_center"):
                         y_centered, x_centered = env.continuous_base_to_continuous_center(np.array(coords))
                     activation_value = gaussian_rbf(x_centered, y_centered, cx, cy, d=d)
@@ -62,6 +63,7 @@ def get_fourier_activation_data(env, include_threshold=0.01, exclude=None):
                     coords = (y, x)
                     if exclude and env.MAP[y, x] in exclude:
                         continue
+                    y_centered, x_centered = y, x
                     if hasattr(env, "continuous_base_to_continuous_center"):
                         y_centered, x_centered = env.continuous_base_to_continuous_center(np.array(coords))
                     norm_y, norm_x = normalize_state((y_centered, x_centered), env.low, env.high)

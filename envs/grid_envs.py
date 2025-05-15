@@ -429,6 +429,7 @@ class GridEnvContinuous(ABC, gym.Env):
 
         # Define the continuous observation space covering the whole map.
         self.epsilon = 1e-6  # define small epsilon
+        self.movement_clip_range = (-cell_size + self.epsilon, cell_size - self.epsilon)
         self.low = np.array([0.0, 0.0], dtype=np.float32)
         self.high = np.array([self.width * self.cell_size - self.epsilon, self.height * self.cell_size - self.epsilon],
                              dtype=np.float32)
@@ -617,9 +618,9 @@ class GridEnvContinuous(ABC, gym.Env):
 
             # Warn & clip any component outside [-1,1]
             for i, comp in enumerate(movement):
-                if comp < -1.0 or comp > 1.0:
-                    print(f"Warning: movement[{i}] = {comp:.3f} out of [-1,1], clipping")
-            movement = np.clip(movement, -1.0, 1.0)
+                if comp < self.movement_clip_range[0] or comp > self.movement_clip_range[1]:
+                    print(f"Warning: movement[{i}] = {comp:.3f} out of {self.movement_clip_range}, clipping")
+            movement = np.clip(movement, self.movement_clip_range[0], self.movement_clip_range[1])
 
             # Compute the new continuous state and clip to the environment boundaries
             new_state = self.state + movement
