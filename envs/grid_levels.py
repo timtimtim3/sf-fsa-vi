@@ -654,7 +654,11 @@ original_office_areas_no_obs_rbf = LevelDataOfficeAreasRBF(
     ]),
     PHI_OBJ_TYPES=original_office_areas.PHI_OBJ_TYPES,
     RENDER_COLOR_MAP=original_office_areas.RENDER_COLOR_MAP,
-    QVAL_COLOR_MAP=original_office_areas.QVAL_COLOR_MAP,
+    QVAL_COLOR_MAP={
+        k: v
+        for k, v in original_office_areas.QVAL_COLOR_MAP.items()
+        if k != "X"
+    },
     RBF_MAP=np.array([
         [' ', ' ', 'C_RBF_1', ' ', ' ', ' ', ' ', 'C_RBF_1', ' ', ' ', ' '],
         [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
