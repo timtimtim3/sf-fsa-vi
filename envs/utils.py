@@ -35,11 +35,15 @@ def get_rbf_activation_data(env, include_threshold=0.01, exclude=None):
             # Compute RBF activation for each cell in the grid
             for y in range(grid_height):
                 for x in range(grid_width):
+                    coords = (y, x)
                     if exclude and env.MAP[y, x] in exclude:
                         continue
-                    activation_value = gaussian_rbf(x, y, cx, cy, d=d)
+                    if hasattr(env, "continuous_base_to_continuous_center"):
+                        y_centered, x_centered = env.continuous_base_to_continuous_center(np.array(coords))
+                    activation_value = gaussian_rbf(x_centered, y_centered, cx, cy, d=d)
                     if activation_value > include_threshold:
-                        rbf_data[symbol][feat][(y, x)] = activation_value
+                        rbf_data[symbol][feat][coords] = activation_value
+
     return rbf_data, (grid_height, grid_width)
 
 
@@ -55,12 +59,15 @@ def get_fourier_activation_data(env, include_threshold=0.01, exclude=None):
             # Compute activation for each cell in the grid
             for y in range(grid_height):
                 for x in range(grid_width):
+                    coords = (y, x)
                     if exclude and env.MAP[y, x] in exclude:
                         continue
-                    norm_y, norm_x = normalize_state((y, x), env.low, env.high)
+                    if hasattr(env, "continuous_base_to_continuous_center"):
+                        y_centered, x_centered = env.continuous_base_to_continuous_center(np.array(coords))
+                    norm_y, norm_x = normalize_state((y_centered, x_centered), env.low, env.high)
                     activation_value = fourier_features(norm_x, norm_y, feat_data=(feat,))[0]
                     if activation_value > include_threshold:
-                        activation_data[symbol][feat][(y, x)] = activation_value
+                        activation_data[symbol][feat][coords] = activation_value
     return activation_data, (grid_height, grid_width)
 
 

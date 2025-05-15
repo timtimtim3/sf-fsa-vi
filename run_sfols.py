@@ -18,6 +18,7 @@ from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
 
 EVAL_EPISODES = 20
+n_iters = 10
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
@@ -157,8 +158,8 @@ def main(cfg: DictConfig) -> None:
     if subtract_constant is not None:
         planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W = do_planning(planning, gpi_agent, eval_env, eval_episodes=EVAL_EPISODES, use_regular_gpi_exec=True, wb=wb)
-
+    W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
+                    use_regular_gpi_exec=True)
     # # Render
     # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 

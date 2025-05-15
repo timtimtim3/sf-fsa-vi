@@ -44,8 +44,16 @@ def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes
 
     for j in range(n_iters):
         print(f'Iter: {j}')
+
+        if W is not None:
+            w_old_arr = np.asarray(list(W.values())).reshape(-1)
+        else:
+            w_old_arr = None
+
         W, time = planning.traverse(W, num_iters=1)
         times.append(time)
+
+        w_arr = np.asarray(list(W.values())).reshape(-1)
 
         rewards = []
         for _ in range(eval_episodes):
@@ -64,4 +72,14 @@ def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes
         }
         if wb is not None:
             wb.log(log_dict)
+
+        if w_old_arr is not None:
+            # Compute normalized difference between old and new weights
+            diff = np.linalg.norm(w_arr - w_old_arr) / w_arr.size
+            print(f"Normalized weight diff: {diff:.6f}")
+
+        # Check for convergence (early stopping)
+        if w_old_arr is not None and np.allclose(w_arr, w_old_arr):
+            print(f"Stopping early at iter {j}")
+            break
     return W

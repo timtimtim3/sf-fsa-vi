@@ -15,6 +15,7 @@ from utils.utils import save_config, do_planning
 
 
 EVAL_EPISODES = 5
+n_iters = 10
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
@@ -163,7 +164,8 @@ def main(cfg: DictConfig) -> None:
     if subtract_constant is not None:
         planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W = do_planning(planning, gpi_agent, eval_env, eval_episodes=EVAL_EPISODES, use_regular_gpi_exec=True)
+    W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
+                    use_regular_gpi_exec=True)
 
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))
