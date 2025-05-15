@@ -638,6 +638,38 @@ original_office_areas_rbf = LevelDataOfficeAreasRBF(
     ]),
 )
 
+original_office_areas_no_obs_rbf = LevelDataOfficeAreasRBF(
+    MAP=np.array([
+        [' ', ' ', 'C', ' ', ' ', ' ', ' ', 'C', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['M', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'O', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['O', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'M'],
+    ]),
+    PHI_OBJ_TYPES=original_office_areas.PHI_OBJ_TYPES,
+    RENDER_COLOR_MAP=original_office_areas.RENDER_COLOR_MAP,
+    QVAL_COLOR_MAP=original_office_areas.QVAL_COLOR_MAP,
+    RBF_MAP=np.array([
+        [' ', ' ', 'C_RBF_1', ' ', ' ', ' ', ' ', 'C_RBF_1', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['M_RBF_1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', 'O_RBF_1', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['O_RBF_1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'M_RBF_1'],
+    ]),
+)
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -659,5 +691,6 @@ LEVELS = {
     "office_areas_fourier_detour": office_areas_fourier_detour,
     "office_areas_detour": office_areas_detour,
     "original_office_areas": original_office_areas,
-    "original_office_areas_rbf": original_office_areas_rbf
+    "original_office_areas_rbf": original_office_areas_rbf,
+    "original_office_areas_no_obs_rbf": original_office_areas_no_obs_rbf
 }
