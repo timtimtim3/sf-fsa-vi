@@ -140,7 +140,6 @@ def main(cfg: DictConfig) -> None:
     if plot:
         for i, (policy, w) in enumerate(zip(gpi_agent.policies, gpi_agent.tasks)):
             if plot_trajs:
-                print("hi")
                 save_path = f"{base_save_dir}/traj_{i}.png" if base_save_dir is not None else None
                 trajectories = gpi_agent.policies[i].get_trajectories(w, n_trajectories=9, method="random", max_steps=40)
                 plot_trajectories(train_env, trajectories, w=w, activation_data=activation_data,

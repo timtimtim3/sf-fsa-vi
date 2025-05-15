@@ -608,6 +608,7 @@ class GridEnvContinuous(ABC, gym.Env):
 
     def step(self, action):
         old_state = self.state.copy()
+        old_cell  = self.state_cell  # (old_row, old_col)
 
         if action != self.TERMINATE:
             dx, dy = self.action_to_dx_dy(action, unit_vector=False)
@@ -616,7 +617,7 @@ class GridEnvContinuous(ABC, gym.Env):
             noise = np.random.normal(loc=0.0, scale=self.noise_std, size=2)
             movement = np.array([dy, dx], dtype=np.float32) + noise
 
-            # Warn & clip any component outside [-1,1]
+            # Warn & clip any component outside [-1,1], so we ensure the agent can't skip over a cell
             for i, comp in enumerate(movement):
                 if comp < self.movement_clip_range[0] or comp > self.movement_clip_range[1]:
                     print(f"Warning: movement[{i}] = {comp:.3f} out of {self.movement_clip_range}, clipping")
@@ -631,28 +632,53 @@ class GridEnvContinuous(ABC, gym.Env):
 
             # Check if the new cell is occupied (i.e. an obstacle).
             if new_cell in self.occupied:
-                # The move would cause us to enter an occupied cell; revert to our current (previous) cell.
-                new_cell = self.state_cell
+                dr = new_cell[0] - old_cell[0]
+                dc = new_cell[1] - old_cell[1]
 
-                # Clip the continuous state to remain within the boundaries of the current (safe) cell.
-                # For cell (row, col), the continuous coordinates are in:
-                #   x in [col * cell_size, (col+1) * cell_size)
-                #   y in [row * cell_size, (row+1) * cell_size)
-                # So deduct small epsilon to stay in the range of the cell.
-                row, col = new_cell
-                cell_min = np.array([row * self.cell_size, col * self.cell_size], dtype=np.float32)
-                cell_max = np.array(
-                    [(row + 1) * self.cell_size - self.epsilon, (col + 1) * self.cell_size - self.epsilon],
-                    dtype=np.float32)
+                # If it's a diagonal move (|dr|=1 and |dc|=1)…
+                if abs(dr) == 1 and abs(dc) == 1:
+                    old_y, old_x = old_state  # continuous coords
+                    new_y, new_x = new_state
+
+                    # compute the two border‐crossing times
+                    # vertical border at x = old_col*cell + sign(dc)*cell
+                    col = old_cell[1]
+                    bx = (col + (1 if dc > 0 else 0)) * self.cell_size
+                    tx = (bx - old_x) / (new_x - old_x)
+
+                    # horizontal border at y = old_row*cell + sign(dr)*cell
+                    row = old_cell[0]
+                    by = (row + (1 if dr > 0 else 0)) * self.cell_size
+                    ty = (by - old_y) / (new_y - old_y)
+
+                    # whichever happens first is your first‐entered neighbor
+                    if tx < ty:
+                        first_cell = (old_cell[0], new_cell[1])  # horizontal neighbor
+                    else:
+                        first_cell = (new_cell[0], old_cell[1])  # vertical neighbor
+
+                    if first_cell not in self.occupied:
+                        # back up to that instead of all the way to old_cell
+                        new_cell = first_cell
+
+                # if not diagonal, or diagonal but the first neighbor was blocked,
+                # we fall back to old_cell
+                if new_cell in self.occupied:
+                    new_cell = old_cell
+
+                # now clip the continuous state into whatever new_cell we have:
+                r, c = new_cell
+                cell_min = np.array([r, c], dtype=np.float32) * self.cell_size
+                cell_max = cell_min + self.cell_size - self.epsilon
                 new_state = np.clip(new_state, cell_min, cell_max)
-            else:
-                # The new cell is valid. Update our current cell.
-                self.state_cell = new_cell
 
-            # Update the continuous state.
+            # finally update
             self.state = new_state
+            self.state_cell = new_cell
 
         prop = self.MAP[self.state_cell]
+        if prop == "X":
+            print("Warning: agent is in an obstacle state X which shouldn't ever happen!")
         done = self.is_done(old_state, action, self.state)
         phi = self.features(old_state, action, self.state)
         reward = -1  # np.dot(phi, self.w)
