@@ -7,3 +7,5 @@ epsilon_decay_steps: 5000
 learning_starts: 100
 learning_rate: 3e-4
 normalize_inputs: True
+per: False
+net_arch: [256, 256]

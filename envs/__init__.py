@@ -14,6 +14,25 @@ gym.envs.register(
     max_episode_steps=200,
 )
 
+# ----------------------------------------- WATER
+for i in range(11):
+    w_id = 'Water-M%d-v0'%i
+    w_en = 'envs.water.water_environment:WaterRMEnvM%d'%i
+    gym.envs.register(
+        id=w_id,
+        entry_point=w_en,
+        max_episode_steps=600
+    )
+
+for i in range(11):
+    w_id = 'Water-single-M%d-v0'%i
+    w_en = 'envs.water.water_environment:WaterRM10EnvM%d'%i
+    gym.envs.register(
+        id=w_id,
+        entry_point=w_en,
+        max_episode_steps=600
+    )
+
 gym.envs.register(
     id='OfficeEval-v0',
     entry_point='envs.grid_envs:Office',
