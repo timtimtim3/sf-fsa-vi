@@ -730,7 +730,7 @@ class GridEnvContinuous(ABC, gym.Env):
             square = self.viewer.square_map[square_coords]
 
             # Agent color (yellow)
-            if square_coords == tuple(self.state):
+            if square_coords == self.state_cell:
                 color = [1, 1, 0]
 
             # Check if the square contains an object
