@@ -63,6 +63,7 @@ class GridEnv(ABC, gym.Env):
         self.terminate_action = terminate_action
         self.reset_probability_goals = reset_probability_goals
         self.initial_is_goal = []
+        self.init_state = None
 
         for c in range(self.width):
             for r in range(self.height):
@@ -70,6 +71,7 @@ class GridEnv(ABC, gym.Env):
                     self.occupied.add((r, c))
                     continue
                 elif self.MAP[r, c] == '_':
+                    self.init_state = (r, c)
                     self.initial.append((r, c))
                     self.initial_is_goal.append(False)
                 elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
@@ -162,6 +164,9 @@ class GridEnv(ABC, gym.Env):
         else:
             self.state = random.choice(self.initial)
         return self.state_to_array(self.state)
+
+    def get_init_state(self):
+        return self.init_state
 
     def random_reset(self):
         # TODO: ?
@@ -416,6 +421,7 @@ class GridEnvContinuous(ABC, gym.Env):
         self.terminate_action = terminate_action
         self.reset_probability_goals = reset_probability_goals
         self.initial_is_goal = []
+        self.init_state = None
 
         self.cell_size = cell_size
         self.step_size = step_size
@@ -441,6 +447,7 @@ class GridEnvContinuous(ABC, gym.Env):
                     self.occupied.add((r, c))
                     continue
                 elif self.MAP[r, c] == '_':
+                    self.init_state = (r, c)
                     self.initial.append((r, c))
                     self.initial_is_goal.append(False)
                 elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
@@ -490,6 +497,9 @@ class GridEnvContinuous(ABC, gym.Env):
                 self.state_to_coords[idx] = (i, j)
                 idx += 1
         self.coords_to_state = dict(reversed(item) for item in self.state_to_coords.items())
+
+    def get_init_state(self):
+        return self.cell_to_continuous_center(self.init_state)
 
     @staticmethod
     def state_to_array(state):

@@ -12,7 +12,7 @@ from sfols.rl.successor_features.ols import OLS
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
-from utils.utils import seed_everything, save_config, do_planning
+from utils.utils import seed_everything, save_config, do_planning, save_wandb_run_name
 from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
@@ -106,6 +106,7 @@ def main(cfg: DictConfig) -> None:
     shutil.rmtree(base_save_dir, ignore_errors=True)
     os.makedirs(base_save_dir, exist_ok=True)
     save_config(cfg, base_dir=base_save_dir, type='run')
+    save_wandb_run_name(base_save_dir, run.name)
 
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape

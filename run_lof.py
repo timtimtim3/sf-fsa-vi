@@ -1,7 +1,8 @@
+import shutil
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
 from fsa.tasks_specification import load_fsa
-from utils.utils import seed_everything
+from utils.utils import seed_everything, save_config, save_wandb_run_name
 from lof.algorithms.options import MetaPolicyVI
 import hydra
 import wandb
@@ -31,6 +32,14 @@ def main(cfg: DictConfig) -> None:
     train_env = gym.make(env_name)
     eval_env = gym.make(env_name)
 
+    # Directory for storing the policies
+    directory = train_env.unwrapped.spec.id
+    base_save_dir = f"results/lof/{directory}"
+    shutil.rmtree(base_save_dir, ignore_errors=True)
+    os.makedirs(base_save_dir, exist_ok=True)
+    save_config(cfg, base_dir=base_save_dir, type='run')
+    save_wandb_run_name(base_save_dir, run.name)
+
     # Create the FSA env wrapper
     fsa_task = cfg.fsa_name
     fsa, T = load_fsa("-".join((env_name, fsa_task)), eval_env)
@@ -52,8 +61,7 @@ def main(cfg: DictConfig) -> None:
     lof.train_metapolicy(record=True)
 
     # Create and save options and metapolicy
-    os.makedirs(f"results/lof/{run.name}/options")
-    lof.save(f"results/lof/{run.name}")
+    lof.save(base_save_dir)
 
     for oidx, option in enumerate(lof.options):
         print(oidx)

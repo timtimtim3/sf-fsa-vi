@@ -1,14 +1,14 @@
 from omegaconf import DictConfig, OmegaConf
 from fsa.tasks_specification import load_fsa
 from envs.wrappers import GridEnvWrapper
-from utils.utils import seed_everything
+from utils.utils import seed_everything, save_config
 from lof.algorithms.options import MetaPolicyVI, MetaPolicyQLearning
 import hydra, wandb, gym, os
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
-    base_dir = os.path.join("results", "lof", cfg.get("base_dir", "stilted-silence-401"))
+    dir_date_postfix = cfg.get("dir_postfix", None)
 
     # disable WANDB logging
     wandb.init(mode="disabled")
@@ -19,6 +19,15 @@ def main(cfg: DictConfig) -> None:
     env_name = cfg.env.env_name
     train_env = gym.make(env_name)
     eval_env = gym.make(env_name)
+
+    # Directory for storing the policies
+    directory = train_env.unwrapped.spec.id
+    if dir_date_postfix is not None:
+        dir_date_postfix = "-" + dir_date_postfix
+        directory += dir_date_postfix
+    base_save_dir = f"results/lof/policies/{directory}"
+    save_config(cfg, base_dir=base_save_dir, type='play')
+
     fsa_task = cfg.fsa_name
     fsa, T = load_fsa(f"{env_name}-{fsa_task}", eval_env)
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
@@ -30,7 +39,7 @@ def main(cfg: DictConfig) -> None:
         eval_env=eval_env,
         fsa=fsa,
         T=T,
-        base_dir=base_dir,
+        base_dir=base_save_dir,
         gamma=cfg.algorithm.gamma,  # or hardcode if needed
     )
 
@@ -39,8 +48,8 @@ def main(cfg: DictConfig) -> None:
     print(f"Success={success}, Reward={reward}")
     # … any other analysis …
 
-    meta.plot_meta_qvals(base_dir=base_dir)
-    meta.plot_q_vals(base_dir=os.path.join(base_dir, "options"))
+    meta.plot_meta_qvals(base_dir=base_save_dir)
+    meta.plot_q_vals(base_dir=os.path.join(base_save_dir, "options"))
 
 
 if __name__ == "__main__":

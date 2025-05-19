@@ -1,3 +1,5 @@
+from typing import Union
+
 import gym
 import numpy as np
 
@@ -11,15 +13,16 @@ class GridEnvWrapper(gym.Env):
         self.exit_states = self.env.unwrapped.exit_states
         self.PHI_OBJ_TYPES = env.PHI_OBJ_TYPES
         self.fsa_init_state = fsa_init_state
+        self.low_level_init_state = self.env.get_init_state()
         self.T = T
         self.feat_dim = env.feat_dim
         
     def get_state(self):
         return self.fsa_state, tuple(self.env.state)
 
-    def reset(self):
+    def reset(self, use_low_level_init_state=False):
         self.fsa_state = self.fsa_init_state
-        self.state = tuple(self.env.reset())
+        self.state = tuple(self.env.reset(state=self.low_level_init_state if use_low_level_init_state else None))
         
         return (self.fsa_state, self.state), {"proposition": self.env.get_symbol_at_state(self.state)}
 
@@ -42,7 +45,7 @@ class GridEnvWrapper(gym.Env):
         
         self.fsa_state = self.fsa.states[next_fsa_state_index]
 
-        obstacle = phi["proposition"] == "O"
+        obstacle = phi["proposition"] == "O" and "O" not in self.env.PHI_OBJ_TYPES
         done = self.fsa.is_terminal(self.fsa_state) or obstacle
 
         reward = -1000 if obstacle else -1
@@ -57,6 +60,7 @@ class FlatQEnvWrapper(gym.Env):
         self.env = env
         self.fsa = fsa
         self.fsa_init_state = fsa_init_state
+        self.low_level_init_state = self.env.get_init_state()
         self.exit_states = self.env.unwrapped.exit_states
         self.observation_space = gym.spaces.Box(low=np.zeros(
             3), high=np.ones(3), dtype=np.float32)
@@ -67,15 +71,16 @@ class FlatQEnvWrapper(gym.Env):
             self.initial.append(self._merge_states(fsa_init_state, s))
         self.eval_mode = eval_mode
 
-
     def get_state(self):
-
         return self._merge_states(fsa_state=self.fsa_state, state=self.state)
 
-    def reset(self):
-
-        self.fsa_state = self.fsa_init_state
-        self.state = tuple(self.env.reset())
+    def reset(self, use_low_level_init_state=False, use_fsa_init_state=False):
+        if use_fsa_init_state:
+            self.fsa_state = self.fsa_init_state
+        else:
+            uidx = np.random.randint(0, self.fsa.num_states - 1)
+            self.fsa_state = self.fsa.states[uidx]
+        self.state = tuple(self.env.reset(state=self.low_level_init_state if use_low_level_init_state else None))
         return self._merge_states(fsa_state=self.fsa_state, state=self.state)
 
     def step(self, action):
@@ -86,6 +91,7 @@ class FlatQEnvWrapper(gym.Env):
         prop = info["proposition"]
         state = self.env.state
         f_state = self.fsa_state
+        self.state = state
 
         neighbors = self.fsa.get_neighbors(self.fsa_state)
         satisfied = [prop in self.fsa.get_predicate((f_state, n)) for n in neighbors]
@@ -98,11 +104,15 @@ class FlatQEnvWrapper(gym.Env):
         if next_fsa_state is None:
             next_fsa_state = f_state
 
-        if self.env.MAP[state] == "O":
-            info["phi"] = -1000
-            return self._merge_states(fsa_state=self.fsa_state, state=state), -1000, True, {'phi': -1000}
-
         self.fsa_state = next_fsa_state
+        if self.env.terminate_action and action == self.env.TERMINATE:
+            info["phi"] = -1000
+            return self._merge_states(fsa_state=self.fsa_state, state=state), -1000, False, {'phi': -1000}
+
+        # if self.env.MAP[state] == "O":
+        #     info["phi"] = -1000
+        #     return self._merge_states(fsa_state=self.fsa_state, state=state), -1000, True, {'phi': -1000}
+
         if self.eval_mode:
             done = self.fsa.is_terminal(self.fsa_state) or 'TimeLimit.truncated' in info
         else:
@@ -113,6 +123,9 @@ class FlatQEnvWrapper(gym.Env):
         info["phi"] = -1
         return self._merge_states(fsa_state=self.fsa_state, state=state), -1, done, info
 
-    def _merge_states(self, fsa_state, state):
-        u_index = self.fsa.states.index(fsa_state)
+    def _merge_states(self, fsa_state: Union[int, str], state):
+        if isinstance(fsa_state, int):
+            u_index = fsa_state
+        else:
+            u_index = self.fsa.states.index(fsa_state)
         return (u_index, *state)

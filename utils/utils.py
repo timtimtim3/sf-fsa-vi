@@ -38,6 +38,17 @@ def save_config(cfg, base_dir, type='run'):
         json.dump(cfg_dict, fp, indent=2)
 
 
+def save_wandb_run_name(base_dir: str, run_name: str, filename: str = "wandb_runs.txt"):
+    """
+    Ensures `base_dir` exists and appends `run_name` to `filename`.
+    """
+    os.makedirs(base_dir, exist_ok=True)
+    path = os.path.join(base_dir, filename)
+    # Open in append mode (creates file if needed), write the run name + newline
+    with open(path, "a") as f:
+        f.write(f"{run_name}\n")
+
+
 def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True):
     W = None
     times = []
