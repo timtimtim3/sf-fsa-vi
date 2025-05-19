@@ -1,0 +1,14 @@
+_target_: sfols.rl.successor_features.flat_dqn.DQN
+#alpha: 0.3
+gamma: 0.99
+initial_epsilon: 1
+final_epsilon: 0.1
+epsilon_decay_steps: 50000
+log: True
+learning_starts: 100
+learning_rate: 3e-4
+normalize_inputs: True
+per: False
+net_arch: [256, 256]
+total_timesteps: 100_000
+eval_freq: 500

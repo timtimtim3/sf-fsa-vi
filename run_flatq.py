@@ -7,8 +7,8 @@ from copy import deepcopy
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import FlatQEnvWrapper
-from sfols.rl.successor_features.flatq import FlatQ
 from utils.utils import seed_everything, setup_run_dir
+from hydra.utils import instantiate
 
 EVAL_EPISODES = 20
 n_iters = 10
@@ -56,24 +56,16 @@ def main(cfg: DictConfig) -> None:
                       fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
     eval_env = FlatQEnvWrapper(eval_env, fsa, fsa_init_state="u0")
     train_env = FlatQEnvWrapper(train_env, fsa, fsa_init_state="u0")
-    n_fsa_states= fsa.num_states
+    n_fsa_states = fsa.num_states
 
-    agent = FlatQ(
+    agent = instantiate(
+        cfg.algorithm,
         env=train_env,
         eval_env=eval_env,
-        n_fsa_states=n_fsa_states,
-        alpha=cfg.algorithm.alpha,  # learning rate
-        gamma=cfg.algorithm.gamma,  # discount factor
-        initial_epsilon=cfg.algorithm.initial_epsilon,  # start ε
-        final_epsilon=cfg.algorithm.final_epsilon,  # end ε
-        epsilon_decay_steps=cfg.algorithm.epsilon_decay_steps,  # decay schedule
-        log=cfg.algorithm.log,  # turn on WandB logging
-        log_prefix="flatQ/"  # metric namespace
+        n_fsa_states=n_fsa_states
     )
     agent.learn(
         total_timesteps=cfg.algorithm.total_timesteps,
-        total_episodes=None,
-        reset_num_timesteps=False,
         eval_freq=cfg.algorithm.eval_freq
     )
     agent.save(base_save_dir)

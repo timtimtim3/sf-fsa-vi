@@ -1,3 +1,4 @@
+_target_: sfols.rl.successor_features.flatq.FlatQ
 alpha: 0.3
 gamma: 0.99
 initial_epsilon: 1
