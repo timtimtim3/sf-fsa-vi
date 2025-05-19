@@ -84,12 +84,16 @@ def main(cfg: DictConfig) -> None:
         kwargs = {}
         return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
+    planning_kwargs = {}
+    if subtract_constant is not None:
+        planning_kwargs["subtract_constant"] = subtract_constant
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
                     psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint,
-                    ValueIteration=ValueIteration)
+                    ValueIteration=ValueIteration,
+                    planning_kwargs=planning_kwargs)
 
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES
@@ -115,6 +119,8 @@ def main(cfg: DictConfig) -> None:
         plot_all_fourier(activation_data, grid_size, train_env, save_dir=base_save_dir)
     else:
         activation_data = None
+
+    print(gpi_agent.evaluate_fsa(eval_env, render=True))
 
     # ROLLOUT
     w = gpi_agent.tasks[0]
@@ -165,9 +171,6 @@ def main(cfg: DictConfig) -> None:
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
     print("\nPerforming value iteration...")
-    planning_kwargs = {}
-    if subtract_constant is not None:
-        planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
     W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
                     use_regular_gpi_exec=True)

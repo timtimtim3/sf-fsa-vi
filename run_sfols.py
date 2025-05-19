@@ -88,12 +88,16 @@ def main(cfg: DictConfig) -> None:
         kwargs = {}
         return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
 
+    planning_kwargs = {}
+    if subtract_constant is not None:
+        planning_kwargs["subtract_constant"] = subtract_constant
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
                     psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint,
-                    ValueIteration=ValueIteration)
+                    ValueIteration=ValueIteration,
+                    planning_kwargs=planning_kwargs)
 
     # m = number of predicates
     # Need to add the constraint, which sets add some restriction to the extrema weights.
@@ -151,9 +155,6 @@ def main(cfg: DictConfig) -> None:
     run.summary["policies_obtained"] = len(gpi_agent.policies)
     wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
 
-    planning_kwargs = {}
-    if subtract_constant is not None:
-        planning_kwargs["subtract_constant"] = subtract_constant
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
     W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
                     use_regular_gpi_exec=True)
