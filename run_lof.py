@@ -1,8 +1,7 @@
-import shutil
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
 from fsa.tasks_specification import load_fsa
-from utils.utils import seed_everything, save_config, save_wandb_run_name
+from utils.utils import seed_everything, setup_run_dir
 from lof.algorithms.options import MetaPolicyVI
 import hydra
 import wandb
@@ -35,10 +34,7 @@ def main(cfg: DictConfig) -> None:
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
     base_save_dir = f"results/lof/{directory}"
-    shutil.rmtree(base_save_dir, ignore_errors=True)
-    os.makedirs(base_save_dir, exist_ok=True)
-    save_config(cfg, base_dir=base_save_dir, type='run')
-    save_wandb_run_name(base_save_dir, run.name)
+    setup_run_dir(base_save_dir, cfg, run_name=run.name)
 
     # Create the FSA env wrapper
     fsa_task = cfg.fsa_name

@@ -1,5 +1,4 @@
 import wandb as wb
-import shutil
 import hydra
 import envs
 import gym
@@ -9,7 +8,7 @@ from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import FlatQEnvWrapper
 from sfols.rl.successor_features.flatq import FlatQ
-from utils.utils import seed_everything, save_config, save_wandb_run_name
+from utils.utils import seed_everything, setup_run_dir
 
 EVAL_EPISODES = 20
 n_iters = 10
@@ -50,10 +49,7 @@ def main(cfg: DictConfig) -> None:
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
     base_save_dir = f"results/flatq/{directory}"
-    shutil.rmtree(base_save_dir, ignore_errors=True)
-    os.makedirs(base_save_dir, exist_ok=True)
-    save_config(cfg, base_dir=base_save_dir, type='run')
-    save_wandb_run_name(base_save_dir, run.name)
+    setup_run_dir(base_save_dir, cfg, run_name=run.name)
 
     # Create the FSA env wrapper, to evaluate the FSA
     fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,

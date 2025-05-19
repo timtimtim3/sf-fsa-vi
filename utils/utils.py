@@ -1,6 +1,9 @@
 import json
 import random, os
-import torch as th  
+import shutil
+from typing import List, Optional
+
+import torch as th
 import numpy as np 
 import os
 
@@ -38,15 +41,57 @@ def save_config(cfg, base_dir, type='run'):
         json.dump(cfg_dict, fp, indent=2)
 
 
-def save_wandb_run_name(base_dir: str, run_name: str, filename: str = "wandb_runs.txt"):
+def save_wandb_run_name(
+        base_dir: str,
+        run_name: str,
+        history: Optional[List[str]] = None,
+        filename: str = "wandb_runs.txt"
+):
     """
-    Ensures `base_dir` exists and appends `run_name` to `filename`.
+    Ensures `base_dir` exists and writes out the full run-history:
+    first any names in `history`, then the current `run_name`.
+
+    Args:
+        base_dir:   folder to create/ensure
+        run_name:   the newly-started WandB run name
+        history:    list of past run names to preserve (in order)
+        filename:   the file under base_dir to write into
     """
     os.makedirs(base_dir, exist_ok=True)
     path = os.path.join(base_dir, filename)
-    # Open in append mode (creates file if needed), write the run name + newline
-    with open(path, "a") as f:
+
+    # Default to empty list if no history provided
+    history = history or []
+
+    # Write all old names, then the new one
+    with open(path, "w") as f:
+        for name in history:
+            f.write(f"{name}\n")
         f.write(f"{run_name}\n")
+
+
+def setup_run_dir(base_save_dir, cfg, run_name = None):
+    run_name_history = read_wandb_run_history(base_save_dir)
+    shutil.rmtree(base_save_dir, ignore_errors=True)
+    os.makedirs(base_save_dir, exist_ok=True)
+    save_config(cfg, base_dir=base_save_dir, type='run')
+    save_wandb_run_name(base_save_dir, run_name, history=run_name_history)
+
+
+def read_wandb_run_history(base_dir: str,
+                           filename: str = "wandb_runs.txt"
+                          ) -> List[str]:
+    """
+    Reads and returns the list of previous WandB run names
+    from `<base_dir>/<filename>`.  If the file doesn’t exist,
+    returns an empty list.
+    """
+    path = os.path.join(base_dir, filename)
+    if not os.path.exists(path):
+        return []
+    with open(path, "r") as f:
+        # strip newline characters
+        return [line.strip() for line in f.readlines()]
 
 
 def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True):
