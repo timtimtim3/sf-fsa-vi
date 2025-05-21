@@ -1,3 +1,5 @@
+import numpy as np
+
 import wandb as wb
 import hydra
 import envs
@@ -15,7 +17,6 @@ from utils.utils import seed_everything, do_planning, setup_run_dir
 from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
-
 EVAL_EPISODES = 20
 n_iters = 10
 
@@ -27,6 +28,7 @@ def main(cfg: DictConfig) -> None:
     subtract_constant = cfg.get("subtract_constant", None)
     use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
     fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
+    learn_weights = cfg.get("learn_weights", None)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -57,6 +59,10 @@ def main(cfg: DictConfig) -> None:
 
     train_env = gym.make(env_name, **train_env_kwargs)
     eval_env = gym.make(env_name, **eval_env_kwargs)
+
+    if learn_weights is not None:
+        for w in learn_weights:
+            assert len(w) == train_env.feat_dim
 
     psis_are_augmented = False if value_iter_type is None or "augmented" not in value_iter_type.lower() else True
     if value_iter_type:
@@ -120,18 +126,10 @@ def main(cfg: DictConfig) -> None:
     else:
         activation_data = None
 
-    for ols_iter in range(cfg.max_iter_ols):
-        print(f"ols_iter: {ols_iter}")
-        
-        if ols.ended():
-            print("ended at iteration", ols_iter)
-            break
-       
-        w = ols.next_w()
-        print(f"Training {w}")
-
+    def learn_loop(w):
         gpi_agent.learn(w=w, reuse_value_ind=ols.get_set_max_policy_index(w), **cfg.gpi.learn)
-        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w, using_dqn=using_dqn)  # Do the expectation analytically
+        value = policy_eval_exact(agent=gpi_agent, env=train_env, w=w,
+                                  using_dqn=using_dqn)  # Do the expectation analytically
         # Value here is the average SF over initial starting states
         # under the current GPI policy under current w=w (including the policy that was just learned)
         remove_policies = ols.add_solution(value, w, gpi_agent=gpi_agent, env=train_env,
@@ -143,6 +141,23 @@ def main(cfg: DictConfig) -> None:
                               show=False)
 
         gpi_agent.save_tasks(base_save_dir, as_json=True, as_pickle=True)
+
+    if learn_weights is not None:
+        for w in learn_weights:
+            print(f"Training pre-defined weights {w}")
+            learn_loop(np.array(w, dtype=np.float64))
+    else:
+        for ols_iter in range(cfg.max_iter_ols):
+            print(f"ols_iter: {ols_iter}")
+
+            if ols.ended():
+                print("ended at iteration", ols_iter)
+                break
+
+            w = ols.next_w()
+            print(f"Training {w}")
+
+            learn_loop(w)
 
     # DONE
     gpi_agent.save_policies(base_save_dir)
@@ -158,6 +173,7 @@ def main(cfg: DictConfig) -> None:
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
     W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
                     use_regular_gpi_exec=True)
+
     # # Render
     # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 
