@@ -25,7 +25,7 @@ def main(cfg: DictConfig) -> None:
     if dir_date_postfix is not None:
         dir_date_postfix = "-" + dir_date_postfix
         directory += dir_date_postfix
-    base_save_dir = f"results/lof/policies/{directory}"
+    base_save_dir = f"results/lof/{directory}"
     save_config(cfg, base_dir=base_save_dir, type='play')
 
     fsa_task = cfg.fsa_name

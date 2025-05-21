@@ -1,0 +1,16 @@
+_target_: lof.algorithms.optionsContinuous.MetaPolicyDQN
+#alpha: 0.3
+gamma: 0.99
+num_episodes: 1600
+episode_length: 100
+eval_freq: 500
+init_epsilon: 1
+final_epsilon: 0.1
+epsilon_decay_steps: 5000
+log: True
+warmup_steps: 100
+lr: 3e-4
+normalize_inputs: True
+per: False
+net_arch: [256, 256]
+learning_steps: 10000

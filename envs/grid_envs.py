@@ -535,6 +535,11 @@ class GridEnvContinuous(ABC, gym.Env):
         # Convert continuous cell base (top-left corner) to continuous center coordinates: the center of the cell
         return base + 0.5 * self.cell_size
 
+    def continuous_state_to_continuous_center(self, state):
+        cell = self.continuous_to_cell(state)
+        center = self.cell_to_continuous_center(cell)
+        return center
+
     def get_initial_state_distribution_sample(self):
         initial_centers = []
         for state_cell in self.initial:
