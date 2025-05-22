@@ -1,12 +1,12 @@
 from copy import deepcopy
-
-from hydra.utils import get_class
-from omegaconf import DictConfig, OmegaConf
-from fsa.tasks_specification import load_fsa
+import gym
+import hydra
+import os
+import wandb
+from omegaconf import DictConfig
 from envs.wrappers import GridEnvWrapper
+from fsa.tasks_specification import load_fsa
 from utils.utils import seed_everything, save_config
-from lof.algorithms.options import MetaPolicyVI, MetaPolicyQLearning
-import hydra, wandb, gym, os
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")

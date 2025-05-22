@@ -1,16 +1,12 @@
 from copy import deepcopy
-
 from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import GridEnvWrapper
 from fsa.tasks_specification import load_fsa
 from utils.utils import seed_everything, setup_run_dir
-from lof.algorithms.options import MetaPolicyVI
 import hydra
 import wandb
 import envs
 import gym
-import os
-import numpy as np
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
