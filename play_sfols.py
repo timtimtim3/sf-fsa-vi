@@ -87,6 +87,8 @@ def main(cfg: DictConfig) -> None:
     planning_kwargs = {}
     if subtract_constant is not None:
         planning_kwargs["subtract_constant"] = subtract_constant
+    if psis_are_augmented:
+        planning_kwargs["set_non_goal_zero"] = True
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
@@ -172,8 +174,7 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     print("\nPerforming value iteration...")
     planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W = do_planning(planning, gpi_agent, eval_env, n_iters=n_iters, eval_episodes=EVAL_EPISODES,
-                    use_regular_gpi_exec=True)
+    W, _ = planning.traverse(num_iters=n_iters, verbose=True)
 
     print("\nValue iterated weight vector: ")
     print(np.round(np.asarray(list(W.values())), 2))

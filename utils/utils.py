@@ -1,6 +1,7 @@
 import json
 import random, os
 import shutil
+from copy import deepcopy
 from typing import List, Optional
 
 import torch as th
@@ -8,6 +9,8 @@ import numpy as np
 import os
 
 from omegaconf import OmegaConf
+
+from fsa.planning import get_indicator_props_enable_transition
 
 
 def __init__():
@@ -94,7 +97,8 @@ def read_wandb_run_history(base_dir: str,
         return [line.strip() for line in f.readlines()]
 
 
-def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True):
+def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True,
+                set_non_goal_zero=False, **kwargs):
     W = None
     times = []
 
@@ -138,4 +142,12 @@ def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes
         if w_old_arr is not None and np.allclose(w_arr, w_old_arr):
             print(f"Stopping early at iter {j}")
             break
+
+    if set_non_goal_zero:
+        W_new = deepcopy(W)
+        for fsa_state, w_arr in list(W.items())[:-1]:
+            indicator = get_indicator_props_enable_transition(w_arr, fsa_state, eval_env.fsa, eval_env.env)
+            w_arr *= indicator
+            W_new[fsa_state] = w_arr
+        W = W_new
     return W

@@ -1406,6 +1406,9 @@ class OfficeAreasFeatures(GridEnv):
         """
         return self.feature_extractor.get_feat_idx(symbol, feat)
 
+    def get_weight_idxs_for_symbol(self, symbol):
+        return self.feature_extractor.feat_indices[symbol]
+
 
 class OfficeAreasFeaturesMixin(GridEnvProtocol):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
@@ -1552,6 +1555,9 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
             int: Index of feature under symbol in feature vector phi
         """
         return self.feature_extractor.get_feat_idx(symbol, feat)
+
+    def get_weight_idxs_for_symbol(self, symbol):
+        return self.feature_extractor.feat_indices[symbol]
 
 
 class OfficeAreasFeaturesDiscrete(OfficeAreasFeaturesMixin, GridEnv):

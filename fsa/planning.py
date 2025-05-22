@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional, Union, List
 import time as time
 import numpy as np
@@ -17,7 +18,8 @@ class SFFSAValueIteration:
 
     def traverse(self, 
                  weights: Optional[dict] = None, 
-                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
+                 num_iters: Optional[dict] = 100,
+                 verbose=False) -> Union[dict, List[float]]:
 
         exit_states = self.exit_states
 
@@ -122,7 +124,8 @@ class SFFSAValueIterationRBFCentersOnly:
 
     def traverse(self,
                  weights: Optional[dict] = None,
-                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
+                 num_iters: Optional[dict] = 100,
+                 verbose=False) -> Union[dict, List[float]]:
 
         exit_states_mapping = self.exit_states
 
@@ -210,7 +213,8 @@ class SFFSAValueIterationMean:
 
     def traverse(self,
                  weights: Optional[dict] = None,
-                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
+                 num_iters: Optional[dict] = 100,
+                 verbose=False) -> Union[dict, List[float]]:
 
         exit_states = self.exit_states
 
@@ -326,7 +330,8 @@ class SFFSAValueIterationLeastSquares:
 
     def traverse(self,
                  weights: Optional[dict] = None,
-                 num_iters: Optional[dict] = 100) -> Union[dict, List[float]]:
+                 num_iters: Optional[dict] = 100,
+                 verbose=False) -> Union[dict, List[float]]:
 
         exit_states_mapping = self.exit_states
 
@@ -426,13 +431,29 @@ def get_augmented_psis(psis, n_fsa_states, feat_dim, indicator_edge_has_proposit
     return augmented_psis
 
 
+def get_indicator_props_enable_transition(w, fsa_state, fsa, env):
+    indicator = np.zeros_like(w)
+
+    # Grab all FSA transitions from u0 to any other FSA state
+    # Get the proposition under each transition
+    for src, dst, predicate in fsa.graph.out_edges(fsa_state, data="predicate"):
+        # Get the index in the weight vector of those propositions
+        indices = env.get_weight_idxs_for_symbol(predicate[0])
+
+        # Set those indicies to 1
+        indicator[indices] = 1
+
+    return indicator
+
+
 class SFFSAValueIterationAugmented:
 
     def __init__(self,
                  env,
                  gpi,
                  constraint: Optional[dict] = None,
-                 subtract_constant=0.0) -> None:
+                 subtract_constant=0.0,
+                 set_non_goal_zero=False) -> None:
 
         self.env = env
         self.fsa = self.env.fsa
@@ -441,6 +462,7 @@ class SFFSAValueIterationAugmented:
         self.all_exit_states = []
         self.constraint = constraint
         self.subtract_constant = subtract_constant
+        self.set_non_goal_zero = set_non_goal_zero
 
         for key, exit_states in self.exit_states.items():
             self.all_exit_states.extend(list(exit_states))
@@ -485,7 +507,8 @@ class SFFSAValueIterationAugmented:
 
     def traverse(self,
                  weights=None,
-                 num_iters=100):
+                 num_iters=100,
+                 verbose=False):
 
         if weights is None:
             W = np.zeros((self.augmented_feature_dim,))
@@ -494,7 +517,7 @@ class SFFSAValueIterationAugmented:
 
         timemarks = [0]
 
-        for _ in range(num_iters):
+        for t in range(num_iters):
             start_time = time.time()
 
             W_old = W.copy()  # Keep to compare diff with new weights for stopping iteration
@@ -554,11 +577,27 @@ class SFFSAValueIterationAugmented:
             elapsed_time = time.time() - start_time
             timemarks.append(elapsed_time)
 
+            # Compute normalized difference between old and new weights
+            if verbose:
+                diff = np.linalg.norm(W - W_old) / W_old.size
+                print(f"Normalized weight diff: {diff:.6f}")
+
+            # Check for convergence (early stopping)
             if np.allclose(W, W_old):
+                if verbose:
+                    print(f"Stopping early at iter {t}")
                 break
 
         self.curr_iter += 1
 
         W = {u: W[self.U.index(u) * self.feat_dim: (self.U.index(u) + 1) * self.feat_dim] for u in self.U}
+
+        if self.set_non_goal_zero:
+            W_new = deepcopy(W)
+            for fsa_state, w_arr in list(W.items())[:-1]:
+                indicator = get_indicator_props_enable_transition(w_arr, fsa_state, self.env.fsa, self.env.env)
+                w_arr *= indicator
+                W_new[fsa_state] = w_arr
+            W = W_new
 
         return W, np.cumsum(timemarks)
