@@ -1,6 +1,6 @@
 _target_: lof.algorithms.optionsContinuous.MetaPolicyDQN
 #alpha: 0.3
-gamma: 0.99
+gamma: 0.95
 num_episodes: 1600
 episode_length: 100
 eval_freq: 500
