@@ -1,6 +1,6 @@
 [submodule "lof"]
 	path = lof
-	url = git@github.com:timtimtim3/lof.git
+	url = https://github.com/timtimtim3/lof.git
 [submodule "sfols"]
 	path = sfols
 	url = https://github.com/timtimtim3/sfols.git
