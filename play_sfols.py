@@ -122,7 +122,7 @@ def main(cfg: DictConfig) -> None:
     else:
         activation_data = None
 
-    # print(gpi_agent.evaluate_fsa(eval_env, render=True))
+    print(gpi_agent.evaluate_fsa(eval_env, render=True, base_dir=base_save_dir))
 
     # ROLLOUT
     w = gpi_agent.tasks[0]

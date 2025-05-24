@@ -266,7 +266,41 @@ class GridEnv(ABC, gym.Env):
     def s_dim(self):
         return len(self.state_to_coords)
 
-    def render(self, mode='human'):
+    def render(self, mode='human', headless=False):
+        # if someone asked for rgb_array—or explicitly headless—bypass Pyglet entirely:
+        if mode == 'rgb_array' or headless:
+            max_x, max_y = self.MAP.shape
+            square_size = 30
+            H, W = max_x * square_size, max_y * square_size
+
+            # create an all‐white canvas
+            img = np.ones((H, W, 3), dtype=np.uint8) * 255
+
+            # helper to map float [0,1] colors → [0,255]
+            def to255(c): return int(255 * c)
+
+            for (i, j), square in self.viewer.square_map.items() if hasattr(self, 'viewer') else []:
+                # but we haven’t built viewer in headless mode—so just use MAP+object info:
+                coords = (i, j)
+                if coords == tuple(self.state):
+                    color = [1, 1, 0]
+                elif coords in self.object_ids:
+                    color = getattr(self, 'RENDER_COLOR_MAP', {}).get(self.MAP[coords], [0, 0, 1])
+                elif coords in self.occupied:
+                    color = [0, 0, 0]
+                else:
+                    color = [1, 1, 1]
+
+                # compute pixel rectangle
+                top = i * square_size
+                bottom = top + square_size
+                left   = j * square_size
+                right  = left + square_size
+
+                img[top:bottom, left:right, :] = [to255(c) for c in color]
+
+            return img
+        
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             max_x, max_y = self.MAP.shape
@@ -717,7 +751,43 @@ class GridEnvContinuous(ABC, gym.Env):
     def s_dim(self):
         return len(self.state_to_coords)
 
-    def render(self, mode='human'):
+    def render(self, mode='human', headless=False):
+        """
+        Render the continuous grid environment.
+        - If headless=True or mode=='rgb_array': draw into a H×W×3 uint8 array.
+        - Otherwise: fall back to the default Pyglet viewer.
+        """
+        # 1) HEADLESS / RGB_ARRAY PATH
+        if headless or mode == 'rgb_array':
+            max_x, max_y = self.MAP.shape
+            square_size = 30
+            H = max_x * square_size
+            W = max_y * square_size
+            # white canvas
+            img = np.ones((H, W, 3), dtype=np.uint8) * 255
+
+            def to_u8(c): return int(255 * c)
+
+            # paint each cell
+            for i in range(max_x):
+                for j in range(max_y):
+                    coords = (i, j)
+                    if coords == self.state_cell:
+                        color = [1, 1, 0]
+                    elif coords in self.object_ids:
+                        obj = self.MAP[coords]
+                        color = getattr(self, 'RENDER_COLOR_MAP', {}).get(obj, [0, 0, 1])
+                    elif coords in self.occupied:
+                        color = [0, 0, 0]
+                    else:
+                        color = [1, 1, 1]
+
+                    top = i * square_size
+                    left = j * square_size
+                    img[top:top+square_size, left:left+square_size] = [to_u8(c) for c in color]
+
+            return img
+        
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             max_x, max_y = self.MAP.shape
