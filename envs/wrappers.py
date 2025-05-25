@@ -20,7 +20,7 @@ class GridEnvWrapper(gym.Env):
     def get_state(self):
         return self.fsa_state, tuple(self.env.state)
 
-    def reset(self, use_low_level_init_state=False):
+    def reset(self, use_low_level_init_state=False, use_fsa_init_state=True):
         self.fsa_state = self.fsa_init_state
         self.state = tuple(self.env.reset(state=self.low_level_init_state if use_low_level_init_state else None))
         
@@ -95,6 +95,8 @@ class FlatQEnvWrapper(gym.Env):
 
         neighbors = self.fsa.get_neighbors(self.fsa_state)
         satisfied = [prop in self.fsa.get_predicate((f_state, n)) for n in neighbors]
+        print([self.fsa.get_predicate((f_state, n)) for n in neighbors])
+        print(satisfied)
 
         next_fsa_state = None
 

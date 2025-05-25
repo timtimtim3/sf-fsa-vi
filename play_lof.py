@@ -11,6 +11,7 @@ from utils.utils import seed_everything, save_config
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
     dir_date_postfix = cfg.get("dir_postfix", None)
 
     # disable WANDB logging
@@ -41,7 +42,7 @@ def main(cfg: DictConfig) -> None:
     save_config(cfg, base_dir=base_save_dir, type='play')
 
     fsa_task = cfg.fsa_name
-    fsa, T = load_fsa(f"{env_name}-{fsa_task}", eval_env)
+    fsa, T = load_fsa(f"{env_name}-{fsa_task}", eval_env, fsa_symbols_from_env=fsa_symbols_from_env)
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
 
     lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_env, fsa=fsa, T=T)

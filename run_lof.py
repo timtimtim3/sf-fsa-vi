@@ -11,6 +11,8 @@ import gym
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
+
     # Init Wandb
     run = wandb.init(
         config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True),
@@ -43,7 +45,7 @@ def main(cfg: DictConfig) -> None:
 
     # Create the FSA env wrapper
     fsa_task = cfg.fsa_name
-    fsa, T = load_fsa("-".join((env_name, fsa_task)), eval_env)
+    fsa, T = load_fsa("-".join((env_name, fsa_task)), eval_env, fsa_symbols_from_env=fsa_symbols_from_env)
     eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
     # eval_env = hydra.utils.call(config=env_cfg.pop("eval_env"), env=eval_env, fsa=fsa, fsa_init_state="u0", T=T)
 
