@@ -10,5 +10,5 @@ learning_rate: 3e-4
 normalize_inputs: True
 per: False
 net_arch: [256, 256]
-total_timesteps: 100_000
-eval_freq: 500
+total_timesteps: 100000
+eval_freq: 5000
