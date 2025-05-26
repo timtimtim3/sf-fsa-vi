@@ -1,7 +1,7 @@
 from typing import Union
-
 import gym
 import numpy as np
+
 
 class GridEnvWrapper(gym.Env):
 
@@ -55,7 +55,7 @@ class GridEnvWrapper(gym.Env):
 
 class FlatQEnvWrapper(gym.Env):
 
-    def __init__(self, env, fsa, fsa_init_state="u0", eval_mode=False):
+    def __init__(self, env, fsa, fsa_init_state="u0", eval_mode=False, reward_goal=True):
 
         self.env = env
         self.fsa = fsa
@@ -70,6 +70,9 @@ class FlatQEnvWrapper(gym.Env):
         for s in self.env.initial:
             self.initial.append(self._merge_states(fsa_init_state, s))
         self.eval_mode = eval_mode
+
+        self.step_reward = 0 if reward_goal else -1
+        self.goal_reward = 1 if reward_goal else -1
 
     def get_state(self):
         return self._merge_states(fsa_state=self.fsa_state, state=self.state)
@@ -92,11 +95,10 @@ class FlatQEnvWrapper(gym.Env):
         state = self.env.state
         f_state = self.fsa_state
         self.state = state
+        reward = self.step_reward
 
         neighbors = self.fsa.get_neighbors(self.fsa_state)
         satisfied = [prop in self.fsa.get_predicate((f_state, n)) for n in neighbors]
-        print([self.fsa.get_predicate((f_state, n)) for n in neighbors])
-        print(satisfied)
 
         next_fsa_state = None
 
@@ -121,9 +123,12 @@ class FlatQEnvWrapper(gym.Env):
             done = self.fsa.is_terminal(self.fsa_state)
         info.pop('TimeLimit.truncated', None)
 
+        if done:
+            reward = self.goal_reward
+
         # TODO: Add failure case (crash into obstacle)
         info["phi"] = -1
-        return self._merge_states(fsa_state=self.fsa_state, state=state), -1, done, info
+        return self._merge_states(fsa_state=self.fsa_state, state=state), reward, done, info
 
     def _merge_states(self, fsa_state: Union[int, str], state):
         if isinstance(fsa_state, int):

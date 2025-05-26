@@ -1547,8 +1547,6 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
 
-        print(self.exit_states)
-
         self._create_exit_states_centers()
         exit_states_for_feats = getattr(self, 'exit_states_centers', exit_states)
 
