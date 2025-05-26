@@ -486,7 +486,7 @@ class GridEnvContinuous(ABC, gym.Env):
                     self.initial_is_goal.append(False)
                 elif self.MAP[r, c] in self.PHI_OBJ_TYPES:
                     self.object_ids[(r, c)] = len(self.object_ids)
-                    if add_obj_to_start and self.MAP[r, c] != "O":
+                    if add_obj_to_start and (self.MAP[r, c] != "O" or "O" in self.PHI_OBJ_TYPES):
                         self.initial.append((r, c))
                         self.initial_is_goal.append(True)
                 elif self.MAP[r, c] == ' ' and add_empty_to_start:
@@ -1546,6 +1546,8 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
             else:
                 exit_states[key].add(s)  # Add new coordinate to the existing set
         self.exit_states = exit_states
+
+        print(self.exit_states)
 
         self._create_exit_states_centers()
         exit_states_for_feats = getattr(self, 'exit_states_centers', exit_states)
