@@ -6,7 +6,7 @@ import numpy as np
 class GridEnvWrapper(gym.Env):
 
 
-    def __init__(self, env, fsa, fsa_init_state, T):
+    def __init__(self, env, fsa, fsa_init_state, T, reward_goal=True):
 
         self.env = env 
         self.fsa = fsa
@@ -16,6 +16,9 @@ class GridEnvWrapper(gym.Env):
         self.low_level_init_state = self.env.get_init_state()
         self.T = T
         self.feat_dim = env.feat_dim
+
+        self.step_reward = 0 if reward_goal else -1
+        self.goal_reward = 1 if reward_goal else -1
         
     def get_state(self):
         return self.fsa_state, tuple(self.env.state)
@@ -38,6 +41,8 @@ class GridEnvWrapper(gym.Env):
 
         next_fsa_state_idxs = np.where(self.T[fsa_state_index, :, state_index] == 1)[0]
 
+        reward = self.step_reward
+
         if len(next_fsa_state_idxs) == 0:
             return (self.fsa_state, state), -1000, False, {}
         else: 
@@ -48,7 +53,10 @@ class GridEnvWrapper(gym.Env):
         obstacle = phi["proposition"] == "O" and "O" not in self.env.PHI_OBJ_TYPES
         done = self.fsa.is_terminal(self.fsa_state) or obstacle
 
-        reward = -1000 if obstacle else -1
+        if self.fsa.is_terminal(self.fsa_state):
+            reward = self.goal_reward
+        if obstacle:
+            reward = -1000
 
         return (self.fsa_state, state), reward, done, {"proposition": phi["proposition"]}
 

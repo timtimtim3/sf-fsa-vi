@@ -731,6 +731,10 @@ class GridEnvContinuous(ABC, gym.Env):
         done = self.is_done(old_state, action, self.state)
         phi = self.features(old_state, action, self.state)
         reward = -1  # np.dot(phi, self.w)
+
+        if self.continuous_to_cell(self.state) in self.occupied:
+            print("Warning: continuous state is in occupied cell X!")
+
         return self.state_to_array(self.state), reward, done, {'phi': phi, 'proposition': prop}
 
     def is_done(self, state, action, next_state):
