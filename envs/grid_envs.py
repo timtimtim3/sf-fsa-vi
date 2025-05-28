@@ -1209,10 +1209,46 @@ class OfficeAreasRBF(GridEnv):
         return self.rbf_indices[symbol][(cy, cx)]
 
 
-class FeatureExtractor:
+class AbstractFeatureExtractor(ABC):
+    def __init__(self):
+        self.feat_dim = 1  # Must be > 0 so phi has at least one entry
+        self.feat_indices = {}
+        self.prop_at_feat_idx = ['DUMMY']  # Symbol associated with dummy feature
+
+    @abstractmethod
+    def features(self, env, state, action, next_state):
+        pass
+
+    @abstractmethod
+    def get_feat_idx(self, symbol, feat):
+        pass
+
+    def get_weight_idxs_for_symbol(self, symbol):
+        return np.array([])  # Optional stub for compatibility
+
+
+class DummyFeatureExtractor(AbstractFeatureExtractor):
+    def __init__(self):
+        super().__init__()
+        self.feat_dim = 1
+        self.feat_indices = {'DUMMY': np.array([0])}
+        self.prop_at_feat_idx = ('DUMMY',)
+
+    def features(self, env, state, action, next_state):
+        return np.zeros(self.feat_dim, dtype=np.float32)
+
+    def get_feat_idx(self, symbol, feat):
+        return 0  # Return dummy index
+
+    def get_weight_idxs_for_symbol(self, symbol):
+        return self.feat_indices.get(symbol, np.array([]))
+
+
+class FeatureExtractor(AbstractFeatureExtractor):
     def __init__(self, feat_data, feat_fn, phi_obj_types, exit_states=None, remove_redundant_features=True,
                  min_activation_thresh=0.1, verbose=True, normalize_states_for_fourier=False, terminate_action=False,
                  low=None, high=None, normalize_features=False, clip_features=False):
+        super().__init__()
         self._feat_data = feat_data
         self.feat_fn = feat_fn
         self.phi_obj_types = phi_obj_types
@@ -1353,6 +1389,16 @@ class FeatureExtractor:
         return feat_idx_feat
 
 
+def set_level_non_props(level):
+    if not hasattr(level, "FEAT_DATA"):
+        level.FEAT_DATA = {}
+    if not hasattr(level, "FEAT_FN"):
+        level.FEAT_FN = None
+    if not hasattr(level, "REMOVE_REDUNDANT_FEAT"):
+        level.REMOVE_REDUNDANT_FEAT = False
+    return level
+
+
 class OfficeAreasFeatures(GridEnv):
     def __init__(self, add_obj_to_start=False, random_act_prob=0.0, add_empty_to_start=False,
                  level_name="office_areas_fourier", min_activation_thresh=0.1, terminate_action=False,
@@ -1384,6 +1430,7 @@ class OfficeAreasFeatures(GridEnv):
         """
         # Load level data from the external LEVELS dictionary.
         level = LEVELS[level_name]
+        level = set_level_non_props(level)
 
         # Set level-specific attributes.
         self.MAP = deepcopy(level.MAP)
@@ -1420,11 +1467,14 @@ class OfficeAreasFeatures(GridEnv):
             feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
         if hasattr(level, "NORMALIZE_FEATURES"):
             feature_extractor_kwargs["normalize_features"] = level.NORMALIZE_FEATURES
-        self.feature_extractor = (
-            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
-                             remove_redundant_features=self.remove_redundant_features, verbose=True,
-                             min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
-                             low=self.low, high=self.high, **feature_extractor_kwargs))
+        if not self.FEAT_DATA:
+            self.feature_extractor = DummyFeatureExtractor()
+        else:
+            self.feature_extractor = (
+                FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states,
+                                 remove_redundant_features=self.remove_redundant_features, verbose=True,
+                                 min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
+                                 low=self.low, high=self.high, **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
 
         # self.feat_dim depends on feature extractor __init__, so intialize w here
@@ -1517,6 +1567,8 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         level = LEVELS[level_name]
         self.level_name = level_name
 
+        level = set_level_non_props(level)
+
         # Set level-specific attributes.
         self.MAP = deepcopy(level.MAP)
         self.PHI_OBJ_TYPES = deepcopy(level.PHI_OBJ_TYPES)
@@ -1535,8 +1587,9 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         self._create_coord_mapping()
         self._configure_clip_features()
 
-        # give subclasses a chance to mass‑modify FEAT_DATA
-        self.FEAT_DATA = self._adjust_feat_data(self.FEAT_DATA)
+        if self.FEAT_DATA:
+            # give subclasses a chance to mass‑modify FEAT_DATA
+            self.FEAT_DATA = self._adjust_feat_data(self.FEAT_DATA)
 
         self.low, self.high = self.get_observation_bounds()
 
@@ -1557,12 +1610,15 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         feature_extractor_kwargs = dict()
         if hasattr(level, "NORMALIZE_STATES_FOR_FOURIER"):
             feature_extractor_kwargs["normalize_states_for_fourier"] = level.NORMALIZE_STATES_FOR_FOURIER
-        self.feature_extractor = (
-            FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states_for_feats,
-                             remove_redundant_features=self.remove_redundant_features, verbose=True,
-                             min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
-                             low=self.low, high=self.high, clip_features=self.clip_features,
-                             normalize_features=self.normalize_features, **feature_extractor_kwargs))
+        if not self.FEAT_DATA:
+            self.feature_extractor = DummyFeatureExtractor()
+        else:
+            self.feature_extractor = (
+                FeatureExtractor(self.FEAT_DATA, self.FEAT_FN, self.PHI_OBJ_TYPES, exit_states=exit_states_for_feats,
+                                 remove_redundant_features=self.remove_redundant_features, verbose=True,
+                                 min_activation_thresh=min_activation_thresh, terminate_action=terminate_action,
+                                 low=self.low, high=self.high, clip_features=self.clip_features,
+                                 normalize_features=self.normalize_features, **feature_extractor_kwargs))
         self.prop_at_feat_idx = self.feature_extractor.prop_at_feat_idx
 
         # self.feat_dim depends on feature extractor __init__, so intialize w here

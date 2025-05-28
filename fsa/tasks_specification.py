@@ -409,6 +409,16 @@ def fsa_delivery3(env):
     return fsa, T
 
 
+def set_exit_states_to_single(exit_states):
+    simplified = {}
+    for k, v in exit_states.items():
+        if isinstance(v, set) and len(v) == 1:
+            simplified[k] = next(iter(v))  # extract the single element
+        else:
+            simplified[k] = v
+    return simplified
+
+
 def fsa_office1(env):
 
     # Sequential: Get coffee, then email, then office.
@@ -433,7 +443,8 @@ def fsa_office1(env):
     fsa.add_transition("u1", "u2", ["M1", "M2"])
     fsa.add_transition("u2", "u3", ["O1", "O2"])
 
-    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states))))
+    exit_states = set_exit_states_to_single(env.exit_states)
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[exit_states[x]], range(len(exit_states))))
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -486,7 +497,8 @@ def fsa_office2(env):
     fsa.add_transition("u1", "u3", ["O1", "O2"])
     fsa.add_transition("u2", "u3", ["O1", "O2"])
 
-    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
+    exit_states = set_exit_states_to_single(env.exit_states)
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[exit_states[x]], range(len(exit_states))))
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -552,7 +564,8 @@ def fsa_office3(env):
     fsa.add_transition("u2", "u3", ["C1", "C2"])
     fsa.add_transition("u3", "u4", ["O1", "O2"])
 
-    exit_states_idxs = list(map(lambda x: env.coords_to_state[env.exit_states[x]], range(len(env.exit_states)))) 
+    exit_states = set_exit_states_to_single(env.exit_states)
+    exit_states_idxs = list(map(lambda x: env.coords_to_state[exit_states[x]], range(len(exit_states))))
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 

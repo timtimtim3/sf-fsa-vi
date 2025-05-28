@@ -35,6 +35,58 @@ def create_rbf_grid(x_min, x_max, y_min, y_max, phi_obj_types, x_feat_count=4, y
     return coords_rbfs, d_rbfs_dict
 
 
+def expand_level_symbols(level):
+    """
+    Given a LevelDataOfficeAreas object, return a modified version where each
+    goal symbol (e.g., 'C', 'M', 'O') is replaced with a unique instance (C1, C2, ...)
+    and corresponding metadata (PHI_OBJ_TYPES, color maps) is updated accordingly.
+
+    Excludes symbols: 'X', '_', and ' '.
+    """
+    old_map = level.MAP
+    old_phi_obj_types = level.PHI_OBJ_TYPES
+    old_render_map = level.RENDER_COLOR_MAP
+    old_qval_map = level.QVAL_COLOR_MAP
+
+    new_map = deepcopy(old_map).astype(object)
+    symbol_counters = {}
+    new_phi_obj_types = []
+    new_render_map = {k: v for k, v in old_render_map.items() if k in {'X', '_', ' '}}
+    new_qval_map = {k: v for k, v in old_qval_map.items() if k in {'X', '_', ' '}}
+
+    for y in range(new_map.shape[0]):
+        for x in range(new_map.shape[1]):
+            symbol = new_map[y, x]
+            if symbol in {'X', '_', ' '}:
+                continue
+            if symbol not in old_phi_obj_types:
+                continue  # unknown symbol, skip
+
+            # Increment the counter for this symbol
+            count = symbol_counters.get(symbol, 0) + 1
+            symbol_counters[symbol] = count
+            new_symbol = f"{symbol}{count}"
+
+            # Replace symbol on the map
+            new_map[y, x] = new_symbol
+            new_phi_obj_types.append(new_symbol)
+
+            # Copy color information
+            if symbol in old_render_map:
+                new_render_map[new_symbol] = old_render_map[symbol]
+            if symbol in old_qval_map:
+                new_qval_map[new_symbol] = old_qval_map[symbol]
+
+    new_phi_obj_types = sorted(new_phi_obj_types)
+
+    return type(level)(  # preserve the class (e.g., LevelDataOfficeAreas)
+        MAP=new_map,
+        PHI_OBJ_TYPES=new_phi_obj_types,
+        RENDER_COLOR_MAP=new_render_map,
+        QVAL_COLOR_MAP=new_qval_map
+    )
+
+
 @dataclass
 class LevelDataOfficeAreas:
     MAP: np.ndarray
@@ -674,6 +726,9 @@ original_office_areas_no_obs_rbf = LevelDataOfficeAreasRBF(
     ]),
 )
 
+original_office = expand_level_symbols(original_office_areas)
+
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -696,5 +751,6 @@ LEVELS = {
     "office_areas_detour": office_areas_detour,
     "original_office_areas": original_office_areas,
     "original_office_areas_rbf": original_office_areas_rbf,
-    "original_office_areas_no_obs_rbf": original_office_areas_no_obs_rbf
+    "original_office_areas_no_obs_rbf": original_office_areas_no_obs_rbf,
+    "original_office": original_office
 }
