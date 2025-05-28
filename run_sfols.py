@@ -84,15 +84,24 @@ def main(cfg: DictConfig) -> None:
         print("Defaulting to SFFSAValueIteration")
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
-    # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
-                      fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
-    eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+    eval_envs = []
+    if isinstance(cfg.fsa_name, list):
+        for fsa_name in cfg.fsa_name:
+            # Create the FSA env wrapper, to evaluate the FSA
+            fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
+                              fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+            fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+            eval_envs.append(fsa_env)
+    else:
+        fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
+                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+        fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+        eval_envs.append(fsa_env)
 
     # Define the agent constructor and gpi agent
     def agent_constructor(log_prefix: str):
         kwargs = {}
-        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
+        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_envs, **kwargs)
 
     planning_kwargs = {}
     if subtract_constant is not None:
@@ -102,6 +111,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
+                    fsa_env=eval_envs,
                     psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint,
                     ValueIteration=ValueIteration,
@@ -172,14 +182,16 @@ def main(cfg: DictConfig) -> None:
     run.summary["policies_obtained"] = len(gpi_agent.policies)
     wb.define_metric("evaluation/acc_reward", step_metric="evaluation/iter")
 
-    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W, _ = planning.traverse(num_iters=n_iters, verbose=True)
+    for eval_env in eval_envs:
+        planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
+        W, _ = planning.traverse(num_iters=n_iters, verbose=True)
 
-    # # Render
-    # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
+        # # Render
+        # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 
-    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers,
-                   base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
+        plot_gpi_qvals(W, gpi_agent, train_env, activation_data, fsa_name=eval_env.fsa.name,
+                       unique_symbol_for_centers=unique_symbol_for_centers,
+                       base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
 
     wb.finish()
 

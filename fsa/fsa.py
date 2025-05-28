@@ -4,11 +4,12 @@ import numpy as np
 
 class FiniteStateAutomaton:
 
-    def __init__(self, symbols_to_phi) -> None:
+    def __init__(self, symbols_to_phi, fsa_name="fsa") -> None:
         self.graph =  nx.DiGraph()
         self.num_states = 0
         self.states = []
         self.symbols_to_phi = symbols_to_phi
+        self.name = fsa_name
 
     def add_state(self, node_name):
         self.graph.add_node(node_name) 

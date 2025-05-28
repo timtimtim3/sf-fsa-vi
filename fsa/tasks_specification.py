@@ -8,6 +8,8 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
         symbols = env.PHI_OBJ_TYPES
         symbols_to_phi = {symbol: i for i, symbol in enumerate(symbols)}
 
+    fsa_name = name
+
     if name == "PickupDropoff-v0-task1":
         init_fun = fsa_pickup_dropoff1
     elif name == "PickupDropoff-v0-task2":    
@@ -29,8 +31,10 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
     elif name == "DoubleSlit-v0-task1":
         init_fun = fsa_double_slit1
     elif "detour" in name:
+        fsa_name = "OfficeAreas-v0-Detour-task1"
         init_fun = fsa_detour
     elif "OfficeAreas" in name and "v0-task1" in name:
+        fsa_name = "OfficeAreas-v0-task1"
         init_fun = fsa_officeAreas1
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
         init_fun = fsa_officeAreasSemiCircle1
@@ -40,17 +44,17 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
     kwargs = {}
     if symbols_to_phi is not None:
         kwargs["symbols_to_phi"] = symbols_to_phi
-    g = init_fun(env, **kwargs)
+    g = init_fun(env, fsa_name=fsa_name, **kwargs)
     
     return g
 
-def fsa_pickup_dropoff1(env):
+def fsa_pickup_dropoff1(env, fsa_name="fsa"):
     symbols_to_phi = {"H": 0, 
                       "C": 1,
                       "A": 2,
                       "T": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
     
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -91,13 +95,13 @@ def fsa_pickup_dropoff1(env):
 
     return fsa, T
 
-def fsa_pickup_dropoff2(env):
+def fsa_pickup_dropoff2(env, fsa_name="fsa"):
     symbols_to_phi = {"H": 0, 
                       "C": 1,
                       "A": 2,
                       "T": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
     
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -138,14 +142,14 @@ def fsa_pickup_dropoff2(env):
 
     return fsa, T
 
-def fsa_pickup_dropoff3(env):
+def fsa_pickup_dropoff3(env, fsa_name="fsa"):
     
     symbols_to_phi = {"H": 0, 
                       "C": 1,
                       "A": 2,
                       "T": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
     
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -212,12 +216,12 @@ def fsa_pickup_dropoff3(env):
     return fsa, T
 
 
-def fsa_double_slit1(env):
+def fsa_double_slit1(env, fsa_name="fsa"):
 
     symbols_to_phi = {"O1": 0, 
                       "O2": 1,}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -241,7 +245,7 @@ def fsa_double_slit1(env):
 
     return fsa, T
 
-def fsa_delivery1(env):
+def fsa_delivery1(env, fsa_name="fsa"):
 
     # Sequential: Go to A, then B, then C, then H.
     # A -> B -> C -> H
@@ -251,7 +255,7 @@ def fsa_delivery1(env):
                       "C": 2, 
                       "H": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -289,7 +293,7 @@ def fsa_delivery1(env):
 
     return fsa, T
 
-def fsa_delivery2(env):
+def fsa_delivery2(env, fsa_name="fsa"):
 
     # OR: Go to A "OR" B, then C, then H.
     # (A v B ) -> C -> H
@@ -299,7 +303,7 @@ def fsa_delivery2(env):
                       "C": 2, 
                       "H": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -343,7 +347,7 @@ def fsa_delivery2(env):
 
     return fsa, T
 
-def fsa_delivery3(env):
+def fsa_delivery3(env, fsa_name="fsa"):
 
     # Composed: Go to A "AND" B in any order, then C, then H.
     # (A ^ B) -> C -> H
@@ -353,7 +357,7 @@ def fsa_delivery3(env):
                       "C": 2, 
                       "H": 3}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -419,7 +423,7 @@ def set_exit_states_to_single(exit_states):
     return simplified
 
 
-def fsa_office1(env):
+def fsa_office1(env, fsa_name="fsa"):
 
     # Sequential: Get coffee, then email, then office.
     # COFFEE -> MAIL -> OFFICE
@@ -432,7 +436,7 @@ def fsa_office1(env):
                       "M1": 4,
                       "M2": 5}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -473,7 +477,7 @@ def fsa_office1(env):
 
     return fsa, T
 
-def fsa_office2(env):
+def fsa_office2(env, fsa_name="fsa"):
 
     # OR: Get coffee OR email, then office.
     # (COFFEE v MAIL) -> OFFICE
@@ -485,7 +489,7 @@ def fsa_office2(env):
                       "M1": 4,
                       "M2": 5}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -538,7 +542,7 @@ def fsa_office2(env):
     return fsa, T
 
 
-def fsa_office3(env):
+def fsa_office3(env, fsa_name="fsa"):
 
     # Composite: Get mail AND coffee in any order, then go to an office
     # (COFEE ^ MAIL) -> OFFICE
@@ -550,7 +554,7 @@ def fsa_office3(env):
                       "M1": 4,
                       "M2": 5}
     
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -614,7 +618,7 @@ def fsa_office3(env):
     return fsa, T
 
 
-def fsa_officeAreas1(env, symbols_to_phi=None):
+def fsa_officeAreas1(env, symbols_to_phi=None, fsa_name="fsa"):
     # Sequential: Go to A, then B, then C.
     # A -> B -> C
 
@@ -624,7 +628,7 @@ def fsa_officeAreas1(env, symbols_to_phi=None):
                           "C": 2}
     symbols = list(symbols_to_phi.keys())
 
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -668,14 +672,14 @@ def fsa_officeAreas1(env, symbols_to_phi=None):
     return fsa, T
 
 
-def fsa_officeAreasSemiCircle1(env):
+def fsa_officeAreasSemiCircle1(env, fsa_name="fsa"):
     # Sequential: Go to A, then B
     # A -> B
 
     symbols_to_phi = {"A": 0,
                       "B": 1}
 
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
@@ -710,13 +714,13 @@ def fsa_officeAreasSemiCircle1(env):
 
     return fsa, T
 
-def fsa_detour(env):
+def fsa_detour(env, fsa_name="fsa"):
     # Sequential: Go to A
 
     symbols_to_phi = {"A": 0,
                       "B": 1}
 
-    fsa = FiniteStateAutomaton(symbols_to_phi)
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
     fsa.add_state("u0")
     fsa.add_state("u1")
