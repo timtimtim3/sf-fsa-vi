@@ -49,7 +49,7 @@ def main(cfg: DictConfig) -> None:
     lof.load(base_dir=base_save_dir)
 
     # now you can evaluate, visualize, etc.
-    success, reward = lof.evaluate_metapolicy(reset=False)
+    success, reward, neg_step_r = lof.evaluate_metapolicy(reset=False)
     print(f"Success={success}, Reward={reward}")
     # … any other analysis …
 
