@@ -11,7 +11,7 @@ from sfols.rl.utils.utils import policy_eval_exact
 from sfols.rl.successor_features.gpi import GPI
 from sfols.rl.successor_features.ols import OLS
 from fsa.tasks_specification import load_fsa
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, ListConfig
 from envs.wrappers import GridEnvWrapper
 from utils.utils import seed_everything, do_planning, setup_run_dir
 from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
@@ -85,7 +85,7 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     eval_envs = []
-    if isinstance(cfg.fsa_name, list):
+    if isinstance(cfg.fsa_name, ListConfig):
         for fsa_name in cfg.fsa_name:
             # Create the FSA env wrapper, to evaluate the FSA
             fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
