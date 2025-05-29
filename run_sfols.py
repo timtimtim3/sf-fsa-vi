@@ -85,15 +85,10 @@ def main(cfg: DictConfig) -> None:
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
     eval_envs = []
-    if isinstance(cfg.fsa_name, ListConfig):
-        for fsa_name in cfg.fsa_name:
-            # Create the FSA env wrapper, to evaluate the FSA
-            fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
-                              fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
-            fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
-            eval_envs.append(fsa_env)
-    else:
-        fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
+    fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
+    for fsa_name in fsa_to_load:
+        # Create the FSA env wrapper, to evaluate the FSA
+        fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
                           fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
         fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
         eval_envs.append(fsa_env)

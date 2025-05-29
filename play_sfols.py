@@ -6,7 +6,7 @@ import importlib
 from copy import deepcopy
 from sfols.rl.successor_features.gpi import GPI
 from fsa.tasks_specification import load_fsa
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 import envs
 from envs.wrappers import GridEnvWrapper
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
@@ -72,17 +72,19 @@ def main(cfg: DictConfig) -> None:
         print("Defaulting to SFFSAValueIteration")
         from fsa.planning import SFFSAValueIteration as ValueIteration
 
-    # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
-                      fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
-    eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
-    n_fsa_states = len(fsa.states)
-    feat_dim = train_env.feat_dim
+    eval_envs = []
+    fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
+    for fsa_name in fsa_to_load:
+        # Create the FSA env wrapper, to evaluate the FSA
+        fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
+                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+        fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+        eval_envs.append(fsa_env)
 
     # Create the GPI agent shell (no policies yet)
     def agent_constructor(log_prefix: str):
         kwargs = {}
-        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_env, **kwargs)
+        return hydra.utils.call(config=cfg.algorithm, env=train_env, log_prefix=log_prefix, fsa_env=eval_envs, **kwargs)
 
     planning_kwargs = {}
     if subtract_constant is not None:
@@ -92,6 +94,7 @@ def main(cfg: DictConfig) -> None:
     gpi_agent = GPI(train_env,
                     agent_constructor,
                     **cfg.gpi.init,
+                    fsa_env=eval_envs,
                     psis_are_augmented=psis_are_augmented,
                     planning_constraint=cfg.env.planning_constraint,
                     ValueIteration=ValueIteration,
@@ -122,7 +125,7 @@ def main(cfg: DictConfig) -> None:
     else:
         activation_data = None
 
-    print(gpi_agent.evaluate_fsa(eval_env, render=True, base_dir=base_save_dir))
+    # print(gpi_agent.evaluate_fsa(eval_env, render=True, base_dir=base_save_dir))
 
     # ROLLOUT
     w = gpi_agent.tasks[0]
@@ -172,49 +175,20 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 3) PERFORM VALUE ITERATION AND LET THE AGENT PLAY IN THE ENV WITH RENDER
     # -----------------------------------------------------------------------------
-    print("\nPerforming value iteration...")
-    planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
-    W, _ = planning.traverse(num_iters=n_iters, verbose=True)
+    for eval_env in eval_envs:
+        print("\nPerforming value iteration...")
+        planning = ValueIteration(eval_env, gpi_agent, constraint=cfg.env.planning_constraint, **planning_kwargs)
+        W, _ = planning.traverse(num_iters=n_iters, verbose=True)
+        print("\nValue iterated weight vector: ")
+        print(np.round(np.asarray(list(W.values())), 2))
 
-    print("\nValue iterated weight vector: ")
-    print(np.round(np.asarray(list(W.values())), 2))
+        # # Render
+        # _ = gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
 
-    # DEBUGGING
-    # print(gpi_agent.policies[0].q_table.keys())
-    # print(gpi_agent.policies[0].q_table[(3, 0)])
+        plot_gpi_qvals(W, gpi_agent, train_env, activation_data, fsa_name=eval_env.fsa.name,
+                       unique_symbol_for_centers=unique_symbol_for_centers,
+                       base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
 
-    # print(gpi_agent.policies[0].get_augmented_psis(uidx=0, state=(3, 0)))
-
-    # state = (3, 0)
-    # uidx = 0
-    # state = (0, 2)
-    # uidx = 1
-
-    # print("Regular SF:")
-    # for i, policy in enumerate(gpi_agent.policies):
-    #     print(f"Policy: {i}")
-    #     print(f"Up: {np.round(gpi_agent.policies[i].q_table[state][1], 2)}")
-    #     print(f"Right: {np.round(gpi_agent.policies[i].q_table[state][2], 2)}")
-    #
-    # print("Augmented SF:")
-    # for i, policy in enumerate(gpi_agent.policies):
-    #     print(f"Policy: {i}")
-    #     print(np.round(gpi_agent.policies[i].get_augmented_psis(uidx=uidx, state=state), 3))
-
-    # ROLLOUT
-    # gpi_agent.evaluate(gpi_agent, eval_env, W, render=True, sleep_time=0.1)
-    # all_max_q, all_v, all_gamma_t_v_values, all_gamma_t_q_values = (
-    #     gpi_agent.do_rollout(gpi_agent, eval_env, W, n_fsa_states=n_fsa_states,
-    #                          feat_dim=feat_dim, gamma=gamma, render=False, sleep_time=0.1))
-    # matrix = np.column_stack((all_gamma_t_q_values, all_max_q, all_gamma_t_v_values, all_v))
-    # print(gamma)
-    # print(np.round(matrix, 3))
-
-    plot_gpi_qvals(W, gpi_agent, train_env, activation_data, unique_symbol_for_centers=unique_symbol_for_centers,
-                   base_dir=base_save_dir, psis_are_augmented=not use_regular_gpi_exec)
-
-    train_env.close()
-    eval_env.close()  # Close the environment when done
     wb.finish()
 
 
