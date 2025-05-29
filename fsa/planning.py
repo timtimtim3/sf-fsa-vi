@@ -268,7 +268,9 @@ class SFFSAValueIterationMean:
                         q_vals = []
                         feature_weights = {feature_idx: [] for feature_idx in feature_idxs}
                         for exit_state in exit_states:
-                            q_val = np.dot(self.gpi.max_q(exit_state, W[vidx]), W[vidx])
+                            action, policy_index, q_val = self.gpi.eval_planning(exit_state, W[vidx], return_q_val=True,
+                                                                                 return_policy_index=True)
+                            # q_val = np.dot(self.gpi.max_q(exit_state, W[vidx]), W[vidx])
                             phi = self.env.env.features(state=None, action=None, next_state=exit_state)
                             q_vals.append(q_val)
 
