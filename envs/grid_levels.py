@@ -78,6 +78,8 @@ def expand_level_symbols(level):
                 new_qval_map[new_symbol] = old_qval_map[symbol]
 
     new_phi_obj_types = sorted(new_phi_obj_types)
+    new_render_map = sorted(new_render_map)
+    new_qval_map = sorted(new_qval_map)
 
     return type(level)(  # preserve the class (e.g., LevelDataOfficeAreas)
         MAP=new_map,
