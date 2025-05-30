@@ -3,7 +3,7 @@ import gym
 import hydra
 import os
 import wandb
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 from envs.wrappers import GridEnvWrapper
 from fsa.tasks_specification import load_fsa
 from utils.utils import seed_everything, save_config
@@ -41,16 +41,23 @@ def main(cfg: DictConfig) -> None:
     base_save_dir = f"results/lof/{directory}"
     save_config(cfg, base_dir=base_save_dir, type='play')
 
-    fsa_task = cfg.fsa_name
-    fsa, T = load_fsa(f"{env_name}-{fsa_task}", eval_env, fsa_symbols_from_env=fsa_symbols_from_env)
-    eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+    eval_envs = []
+    Ts = []
+    fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
+    for fsa_name in fsa_to_load:
+        # Create the FSA env wrapper, to evaluate the FSA
+        fsa, T = load_fsa('-'.join(["Office-v0", fsa_name]), eval_env,
+                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+        fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+        eval_envs.append(fsa_env)
+        Ts.append(T)
 
-    lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_env, fsa=fsa, T=T)
+    lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_envs, T=Ts)
     lof.load(base_dir=base_save_dir)
 
     # now you can evaluate, visualize, etc.
-    success, reward, neg_step_r = lof.evaluate_metapolicy(reset=False)
-    print(f"Success={success}, Reward={reward}")
+    # success, reward, neg_step_r = lof.evaluate_metapolicy(reset=False)
+    # print(f"Success={success}, Reward={reward}")
     # … any other analysis …
 
     lof.plot_meta_qvals(base_dir=base_save_dir)

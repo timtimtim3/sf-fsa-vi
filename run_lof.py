@@ -1,5 +1,5 @@
 from copy import deepcopy
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, ListConfig
 from envs.wrappers import GridEnvWrapper
 from fsa.tasks_specification import load_fsa
 from utils.utils import seed_everything, setup_run_dir
@@ -43,17 +43,24 @@ def main(cfg: DictConfig) -> None:
     base_save_dir = f"results/lof/{directory}"
     setup_run_dir(base_save_dir, cfg, run_name=run.name)
 
-    # Create the FSA env wrapper
-    fsa_task = cfg.fsa_name
-    fsa, T = load_fsa(fsa_task, eval_env, fsa_symbols_from_env=fsa_symbols_from_env)
-    eval_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+    eval_envs = []
+    Ts = []
+    fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
+    for fsa_name in fsa_to_load:
+        # Create the FSA env wrapper, to evaluate the FSA
+        fsa, T = load_fsa('-'.join(["Office-v0", fsa_name]), eval_env,
+                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+        fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
+        eval_envs.append(fsa_env)
+        Ts.append(T)
+
     # eval_env = hydra.utils.call(config=env_cfg.pop("eval_env"), env=eval_env, fsa=fsa, fsa_init_state="u0", T=T)
 
     # vi = MetaPolicyVI(train_env, eval_env, fsa, T)
     # vi.train_metapolicy()
 
     # Load the algorithm and run it
-    lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_env, fsa=fsa, T=T)
+    lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_envs, T=Ts)
 
     # lof.gt_options = vi.options
 
@@ -61,7 +68,7 @@ def main(cfg: DictConfig) -> None:
 
     # Once the base options have been learned, we can retrain the policy and keep track
     # of the results for the readaptation (planning), results
-    lof.train_metapolicy(record=True)
+    lof.train_metapolicies(record=True)
 
     # Create and save options and metapolicy
     lof.save(base_save_dir)
