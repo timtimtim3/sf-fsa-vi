@@ -5,7 +5,7 @@ import gym
 import os
 from copy import deepcopy
 from fsa.tasks_specification import load_fsa
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, ListConfig
 from envs.wrappers import FlatQEnvWrapper
 from utils.utils import seed_everything, setup_run_dir
 from hydra.utils import instantiate
@@ -51,25 +51,31 @@ def main(cfg: DictConfig) -> None:
     base_save_dir = f"results/flatq/{directory}"
     setup_run_dir(base_save_dir, cfg, run_name=run.name)
 
-    # Create the FSA env wrapper, to evaluate the FSA
-    fsa, T = load_fsa('-'.join([env_name, cfg.fsa_name]), eval_env,
-                      fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
-    eval_env = FlatQEnvWrapper(eval_env, fsa, fsa_init_state="u0")
-    train_env = FlatQEnvWrapper(train_env, fsa, fsa_init_state="u0")
-    n_fsa_states = fsa.num_states
+    eval_envs = []
+    train_envs = []
+    fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
+    for fsa_name in fsa_to_load:
+        # Create the FSA env wrapper, to evaluate the FSA
+        fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
+                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+        wrapped_eval_env = FlatQEnvWrapper(eval_env, fsa, fsa_init_state="u0")
+        wrapped_train_env = FlatQEnvWrapper(train_env, fsa, fsa_init_state="u0")
+        eval_envs.append(wrapped_eval_env)
+        train_envs.append(wrapped_train_env)
 
-    agent = instantiate(
-        cfg.algorithm,
-        env=train_env,
-        eval_env=eval_env,
-        n_fsa_states=n_fsa_states
-    )
-    agent.learn(
-        total_timesteps=cfg.algorithm.total_timesteps,
-        eval_freq=cfg.algorithm.eval_freq
-    )
-    agent.save(base_save_dir)
-    agent.plot_q_vals(base_dir=base_save_dir, show=True)
+    for train_env, eval_env in zip(train_envs, eval_envs):
+        agent = instantiate(
+            cfg.algorithm,
+            env=train_env,
+            eval_env=eval_env,
+            log_prefix=f"{eval_env.fsa.name}/"
+        )
+        agent.learn(
+            total_timesteps=cfg.algorithm.total_timesteps,
+            eval_freq=cfg.algorithm.eval_freq
+        )
+        agent.save(base_save_dir)
+        agent.plot_q_vals(base_dir=base_save_dir, show=True)
 
     wb.finish()
 
