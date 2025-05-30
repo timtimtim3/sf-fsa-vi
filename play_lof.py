@@ -60,8 +60,12 @@ def main(cfg: DictConfig) -> None:
     # print(f"Success={success}, Reward={reward}")
     # … any other analysis …
 
-    lof.plot_meta_qvals(base_dir=base_save_dir)
     lof.plot_q_vals(base_dir=os.path.join(base_save_dir, "options"))
+
+    lof.train_metapolicies(iters=1000, reset_train=True)
+    log_dict = lof.evaluate_fsa(reset=False)
+    print(log_dict)
+    lof.plot_meta_qvals(base_dir=base_save_dir)
 
 
 if __name__ == "__main__":
