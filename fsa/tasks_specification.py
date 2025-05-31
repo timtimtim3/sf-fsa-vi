@@ -36,13 +36,13 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
     elif "OfficeAreas" in name and "v0-task" in name:
 
         if "task1" in name:
-            fsa_name = "OfficeAreas-v0-task1"
+            fsa_name = "Office-v0-task1"
             init_fun = fsa_officeAreas1
         elif "task2" in name:
-            fsa_name = "OfficeAreas-v0-task2"
+            fsa_name = "Office-v0-task2"
             init_fun = fsa_officeAreas2
         elif "task3" in name:
-            fsa_name = "OfficeAreas-v0-task3"
+            fsa_name = "Office-v0-task3"
             init_fun = fsa_officeAreas3
 
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
