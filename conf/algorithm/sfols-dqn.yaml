@@ -3,7 +3,7 @@ _target_: sfols.rl.successor_features.sf_dqn.SFDQN
 gamma: 0.95
 initial_epsilon: 1
 final_epsilon: 0.1
-epsilon_decay_steps: 5000
+epsilon_decay_steps: 50000
 learning_starts: 100
 learning_rate: 3e-4
 normalize_inputs: True
