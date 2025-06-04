@@ -133,13 +133,14 @@ def plot_metric_across_runs(
     save_dir: str = "results",
     linewidth: float = 1,
     save: bool = False,
-    timestamp: Union[str , None] = None
+    timestamp: Union[str , None] = None,
+    truncate_at_min: bool = True
 ):
     """
     Given a dict of DataFrames `dfs` (keyed by label), each containing columns
     `x_axis`, `ycol`, and optionally `ycol + "/std"`, plot each series on the same
     figure. If `ycol + "/std"` is present and not all NaN, shade ±(std_multiplier * std)
-    around the mean line, using the same color but transparent. Finally, save to PNG.
+    around the mean line, using the same color but transparent. Optionally save to PNG.
 
     - dfs: e.g. {"flatdqn": flatdqn_df, "sfols": sfols_df, "lof": lof_df} or some values may be None
     - x_axis: name of the column to use for the x-axis
@@ -149,23 +150,35 @@ def plot_metric_across_runs(
     - xlabel, ylabel, title: optional labels
     - std_multiplier: how many standard deviations to shade (default = 1.0)
     - save_dir: directory in which to save the figure (default "results")
+    - linewidth: width of the plot lines
+    - save: if True, write out a PNG under `save_dir`
+    - timestamp: override for filename timestamp (otherwise uses now)
+    - truncate_at_min: if True, find the smallest “maximum x_axis” among dfs and set x_max to that;
+                       if False, use the overall maximum x_axis
     """
     if colors is None:
         colors = {"lof": "blue", "flatdqn": "green", "sfols": "red"}
 
-    # Determine global x-axis range across all non-None DataFrames
-    x_min, x_max = None, None
-    for label, df in dfs.items():
-        if df is None or x_axis not in df.columns or ycol not in df.columns:
+    # Determine all max and min x-axis values across non-None DataFrames
+    x_mins = []
+    x_maxs = []
+    for df in dfs.values():
+        if df is None or x_axis not in df.columns:
             continue
         xi = df[x_axis].dropna()
         if xi.empty:
             continue
-        local_min, local_max = xi.min(), xi.max()
-        if x_min is None or local_min < x_min:
-            x_min = local_min
-        if x_max is None or local_max > x_max:
-            x_max = local_max
+        x_mins.append(xi.min())
+        x_maxs.append(xi.max())
+
+    if not x_mins or not x_maxs:
+        raise RuntimeError("No valid x_axis data found in any DataFrame.")
+
+    global_min = min(x_mins)
+    if truncate_at_min:
+        global_max = min(x_maxs)
+    else:
+        global_max = max(x_maxs)
 
     fig, ax = plt.subplots()
 
@@ -187,9 +200,7 @@ def plot_metric_across_runs(
                 upper = yi + std_multiplier * ystd
                 ax.fill_between(xi, lower, upper, color=color, alpha=0.2)
 
-    if x_min is not None and x_max is not None:
-        ax.set_xlim(x_min, x_max)
-
+    ax.set_xlim(global_min, global_max)
     ax.legend()
     ax.grid(True)
     ax.set_xlabel(xlabel or x_axis)
@@ -296,8 +307,8 @@ def main(cfg: DictConfig) -> None:
         ycol="learning/fsa_neg_reward_average",
         colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
         xlabel="Total Timestep",
-        ylabel=f"Mean Neg. FSA Reward",
-        title=f"Mean Neg. Reward over {n_tasks} FSA tasks (average) ±1 STD",
+        ylabel=f"Mean Neg. Step Reward",
+        title=f"Mean Neg. Step Reward over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp
@@ -308,8 +319,8 @@ def main(cfg: DictConfig) -> None:
         ycol="learning/fsa_reward_average",
         colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
         xlabel="Total Timestep",
-        ylabel=f"Mean FSA Reward",
-        title=f"Mean Reward over {n_tasks} FSA tasks (average) ±1 STD",
+        ylabel=f"Mean FSA Reward (Success)",
+        title=f"Mean FSA Reward (Success) over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp
