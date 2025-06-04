@@ -1,8 +1,13 @@
 import fnmatch
+import os
+from typing import Union
 import pandas as pd
 import wandb
 import hydra
 from omegaconf import DictConfig
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
 
 
 def pull_data(run, patterns, x_axis="learning/timestep", samples=100000):
@@ -110,6 +115,95 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
     return final_df
 
 
+def plot_metric_across_runs(
+    dfs: dict[str, Union[pd.DataFrame, None]],
+    x_axis: str,
+    ycol: str,
+    colors: Union[dict[str, str], None] = None,
+    xlabel: Union[str, None] = None,
+    ylabel: Union[str, None] = None,
+    title: Union[str, None] = None,
+    std_multiplier: float = 1.0,
+    save_dir: str = "results",
+    linewidth: float = 1
+):
+    """
+    Given a dict of DataFrames `dfs` (keyed by label), each containing columns
+    `x_axis`, `ycol`, and optionally `ycol + "/std"`, plot each series on the same
+    figure. If `ycol + "/std"` is present and not all NaN, shade ±(std_multiplier * std)
+    around the mean line, using the same color but transparent. Finally, save to PNG.
+
+    - dfs: e.g. {"flatdqn": flatdqn_df, "sfols": sfols_df, "lof": lof_df} or some values may be None
+    - x_axis: name of the column to use for the x-axis
+    - ycol: name of the mean column to plot
+    - colors: optional dict mapping each key in `dfs` to a matplotlib color
+              e.g. {"flatdqn": "green", "sfols": "red", "lof": "blue"}
+    - xlabel, ylabel, title: optional labels
+    - std_multiplier: how many standard deviations to shade (default = 1.0)
+    - save_dir: directory in which to save the figure (default "results")
+    """
+    if colors is None:
+        colors = {"lof": "blue", "flatdqn": "green", "sfols": "red"}
+
+    # Determine global x-axis range across all non-None DataFrames
+    x_min, x_max = None, None
+    for label, df in dfs.items():
+        if df is None or x_axis not in df.columns or ycol not in df.columns:
+            continue
+        xi = df[x_axis].dropna()
+        if xi.empty:
+            continue
+        local_min, local_max = xi.min(), xi.max()
+        if x_min is None or local_min < x_min:
+            x_min = local_min
+        if x_max is None or local_max > x_max:
+            x_max = local_max
+
+    fig, ax = plt.subplots()
+
+    for label, df in dfs.items():
+        if df is None or x_axis not in df.columns or ycol not in df.columns:
+            continue
+
+        xi = df[x_axis].values
+        yi = df[ycol].values
+        color = colors.get(label, None)
+
+        ax.plot(xi, yi, label=label, color=color, linewidth=linewidth)
+
+        std_col = f"{ycol}/std"
+        if std_col in df.columns:
+            ystd = df[std_col].values
+            if not np.all(np.isnan(ystd)):
+                lower = yi - std_multiplier * ystd
+                upper = yi + std_multiplier * ystd
+                ax.fill_between(xi, lower, upper, color=color, alpha=0.2)
+
+    if x_min is not None and x_max is not None:
+        ax.set_xlim(x_min, x_max)
+
+    ax.legend()
+    ax.grid(True)
+    ax.set_xlabel(xlabel or x_axis)
+    ax.set_ylabel(ylabel or ycol)
+    if title:
+        ax.set_title(title)
+
+    plt.tight_layout()
+
+    # Ensure save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+    # Create timestamp string
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Sanitize ycol for filename (replace slashes)
+    ycol_safe = ycol.replace("/", "_")
+    filename = f"{ycol_safe}_{timestamp}.png"
+    save_path = os.path.join(save_dir, filename)
+    fig.savefig(save_path, dpi=300)
+
+    plt.show()
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     api = wandb.Api()
@@ -132,10 +226,22 @@ def main(cfg: DictConfig) -> None:
                       x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
     lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
                     x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
-    
-    print(flatdqn)
-    print(sfols)
-    print(lof)
+
+    dfs = {
+    "flatdqn": flatdqn,
+    "sfols": sfols,
+    "lof": lof
+    }
+    plot_metric_across_runs(
+        dfs,
+        x_axis="learning/total_timestep",
+        ycol="learning/fsa_neg_reward_average",
+        colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
+        xlabel="Total Timestep",
+        ylabel="Negative FSA Reward (average)",
+        title="FSA Neg. Reward Average ±1 STD",
+        std_multiplier=1.0
+    )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,8 @@ defaults:
 flatdqn_run_ids:
   - cazo8la1
 
-sfols_run_ids: []
-
+sfols_run_ids:
+  -  97n0thg5
+  
 lof_run_ids:
-  - uw1ht3ev
+  - nwcnvy9o
