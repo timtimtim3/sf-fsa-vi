@@ -157,7 +157,7 @@ def plot_metric_across_runs(
                        if False, use the overall maximum x_axis
     """
     if colors is None:
-        colors = {"lof": "blue", "flatdqn": "green", "sfols": "red"}
+        colors = {"lof_dqn": "blue", "flat_dqn": "green", "sfols_dqn": "red"}
 
     # Determine all max and min x-axis values across non-None DataFrames
     x_mins = []
@@ -294,18 +294,25 @@ def main(cfg: DictConfig) -> None:
     lof, _ = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
 
     dfs = {
-    "flatdqn": flatdqn,
-    "sfols": sfols,
-    "lof": lof
+    "flat_dqn": flatdqn,
+    "sfols_dqn": sfols,
+    "lof_dqn": lof
     }
     dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
-
+    # colors = {
+    #     "lof_dqn":     "#1f77b4",  # blue
+    #     "flat_dqn":    "#2ca02c",  # green
+    #     # "sfols_dqn":   "#d62728",  # red
+    #     "sfols_dqn":   "#ff7f0e",
+    # }
+    colors = None
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     plot_metric_across_runs(
         dfs,
         x_axis="learning/total_timestep",
         ycol="learning/fsa_neg_reward_average",
-        colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
+        colors=colors,
         xlabel="Total Timestep",
         ylabel=f"Mean Neg. Step Reward",
         title=f"Mean Neg. Step Reward over {n_tasks} FSA tasks ±1 STD",
@@ -317,7 +324,7 @@ def main(cfg: DictConfig) -> None:
         dfs,
         x_axis="learning/total_timestep",
         ycol="learning/fsa_reward_average",
-        colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
+        colors=colors,
         xlabel="Total Timestep",
         ylabel=f"Mean FSA Reward (Success)",
         title=f"Mean FSA Reward (Success) over {n_tasks} FSA tasks ±1 STD",
