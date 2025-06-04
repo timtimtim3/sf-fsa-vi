@@ -49,7 +49,7 @@ def main(cfg: DictConfig) -> None:
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
     base_save_dir = f"results/flatq/{directory}"
-    setup_run_dir(base_save_dir, cfg, run_name=run.name)
+    setup_run_dir(base_save_dir, cfg, run_name=run.name, run_id=run.id)
 
     eval_envs = []
     train_envs = []

@@ -119,7 +119,7 @@ def main(cfg: DictConfig) -> None:
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
     base_save_dir = f"results/sfols/policies/{directory}"
-    setup_run_dir(base_save_dir, cfg, run_name=run.name)
+    setup_run_dir(base_save_dir, cfg, run_name=run.name, run_id=run.id)
 
     unique_symbol_for_centers = False
     grid_size = train_env.MAP.shape

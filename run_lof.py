@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
     if dir_postfix is not None:
         directory = "-".join([directory, dir_postfix])
     base_save_dir = f"results/lof/{directory}"
-    setup_run_dir(base_save_dir, cfg, run_name=run.name)
+    setup_run_dir(base_save_dir, cfg, run_name=run.name, run_id=run.id)
 
     eval_envs = []
     Ts = []
