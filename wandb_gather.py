@@ -5,9 +5,9 @@ import hydra
 from omegaconf import DictConfig
 
 
-def pull_data(run, patterns, x_axis="learning/timestep"):
+def pull_data(run, patterns, x_axis="learning/timestep", samples=100000):
     # Pull *all* history so we can see which columns exist
-    all_df = run.history(pandas=True)
+    all_df = run.history(pandas=True, samples=samples)
 
     per_key_dfs = []
     for pattern in patterns:
@@ -18,7 +18,8 @@ def pull_data(run, patterns, x_axis="learning/timestep"):
             df_key = run.history(
                 pandas=True,
                 keys=[key],
-                x_axis=x_axis
+                x_axis=x_axis,
+                samples=samples
             )
 
             # Rename
@@ -51,37 +52,32 @@ def average_cols(df: pd.DataFrame, cols: list[str], name: str) -> pd.DataFrame:
     return df
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="default")
-def main(cfg: DictConfig) -> None:
-    api = wandb.Api()
-
-    patterns = [
-        "learning/fsa_reward/*-task*",
-        "learning/fsa_neg_reward/*-task*",
-        "learning/fsa_*reward_average"
-    ]
-    x_axis = "learning/timestep"
-
-    flatdqn_run_ids = ["cazo8la1"]
+def pull_runs(api, run_ids, entity, project, patterns, x_axis, 
+              compute_average_from_fsa_reward=False, stretch_x_axis=False):
+    if len(run_ids) < 1:
+        return None
+    
     run_dfs = {}
-    for run_id in flatdqn_run_ids:
-        run_path = f"{cfg.wandb.entity}/{cfg.wandb.project}/{run_id}"
+    for run_id in run_ids:
+        run_path = f"{entity}/{project}/{run_id}"
         run      = api.run(run_path)
 
-        flatdqn = pull_data(run=run, x_axis=x_axis, patterns=patterns)
+        run_df = pull_data(run=run, x_axis=x_axis, patterns=patterns)
 
-        # Get average flatdqn performance over tasks
-        fsa_reward_average_cols = [col for col in flatdqn.columns if fnmatch.fnmatch(col, patterns[0])]
-        fsa_neg_reward_average_cols = [col for col in flatdqn.columns if fnmatch.fnmatch(col, patterns[1])]
-        flatdqn = average_cols(flatdqn, cols=fsa_reward_average_cols, name="learning/fsa_reward_average")
-        flatdqn = average_cols(flatdqn, cols=fsa_neg_reward_average_cols, name="learning/fsa_neg_reward_average")
+        if compute_average_from_fsa_reward:
+            # Get average run_df performance over tasks
+            fsa_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[0])]
+            fsa_neg_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[1])]
+            run_df = average_cols(run_df, cols=fsa_reward_cols, name="learning/fsa_reward_average")
+            run_df = average_cols(run_df, cols=fsa_neg_reward_cols, name="learning/fsa_neg_reward_average")
 
-        # Strech x_axis by n tasks
-        flatdqn[x_axis] *= len(fsa_neg_reward_average_cols)
+        if stretch_x_axis:
+            # Strech x_axis by n tasks
+            run_df[x_axis] *= len(fsa_neg_reward_cols)
 
-        flatdqn = flatdqn.set_index(x_axis)
+        run_df = run_df.set_index(x_axis)
 
-        run_dfs[run_id] = flatdqn
+        run_dfs[run_id] = run_df
 
     # Concatenate them along the columns, using run_id as the top‐level key
     # Resulting columns are a MultiIndex: (run_id, metric_name)
@@ -89,8 +85,10 @@ def main(cfg: DictConfig) -> None:
 
     # Compute mean and std **across runs** for each metric_name. We group by
     # the second level of the MultiIndex (level=1) and take mean/std along axis=1.
-    df_mean = concat_df.groupby(axis=1, level=1).mean()
-    df_std  = concat_df.groupby(axis=1, level=1).std()
+    # df_mean = concat_df.groupby(axis=1, level=1).mean()
+    # df_std  = concat_df.groupby(axis=1, level=1).std()
+    df_mean = (concat_df.T.groupby(level=1).mean().T)
+    df_std = (concat_df.T.groupby(level=1).std().T)
 
     # Rename the std‐columns to append "/std"
     df_std = df_std.rename(columns={col: f"{col}/std" for col in df_std.columns})
@@ -106,12 +104,38 @@ def main(cfg: DictConfig) -> None:
             sorted_cols.append(f"{col}/std")
     final_df = final_df[[x_axis] + sorted_cols]
 
-    print(final_df)
-    print(final_df.columns)
+    # # Drop any rows where all metric columns (i.e. everything except x_axis) are NaN:
+    # metric_cols = [c for c in final_df.columns if c != x_axis]
+    # final_df = final_df.dropna(subset=metric_cols, how="all")
+    return final_df
 
 
-if __name__ == "__main__":
-    main()
+@hydra.main(version_base=None, config_path="conf", config_name="default")
+def main(cfg: DictConfig) -> None:
+    api = wandb.Api()
+
+    patterns = [
+        "learning/fsa_reward/*-task*",
+        "learning/fsa_neg_reward/*-task*",
+        "learning/fsa_*reward_average"
+    ]
+    x_axis = "learning/total_timestep"
+
+    flatdqn_run_ids = cfg.get("flatdqn_run_ids", [])
+    sfols_run_ids   = cfg.get("sfols_run_ids", [])
+    lof_run_ids     = cfg.get("lof_run_ids", [])
+
+    flatdqn = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
+                        x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True)
+    flatdqn = flatdqn.rename(columns={"learning/timestep": x_axis})
+    sfols = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
+                      x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
+    lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
+                    x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
+    
+    print(flatdqn)
+    print(sfols)
+    print(lof)
 
 
 if __name__ == "__main__":

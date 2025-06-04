@@ -1,0 +1,11 @@
+defaults:
+  - _self_
+  - wandb: default
+
+flatdqn_run_ids:
+  - cazo8la1
+
+sfols_run_ids: []
+
+lof_run_ids:
+  - uw1ht3ev
