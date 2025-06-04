@@ -58,7 +58,7 @@ def average_cols(df: pd.DataFrame, cols: list[str], name: str) -> pd.DataFrame:
 
 
 def pull_runs(api, run_ids, entity, project, patterns, x_axis, 
-              compute_average_from_fsa_reward=False, stretch_x_axis=False):
+              compute_average_from_fsa_reward=False, stretch_x_axis=False, repeat_in_stretch=False):
     if len(run_ids) < 1:
         return None
     
@@ -77,8 +77,13 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
             run_df = average_cols(run_df, cols=fsa_neg_reward_cols, name="learning/fsa_neg_reward_average")
 
         if stretch_x_axis:
-            # Strech x_axis by n tasks
-            run_df[x_axis] *= len(fsa_neg_reward_cols)
+            # Stretch x_axis by number of goal‐tasks
+            N = len(fsa_neg_reward_cols)
+            run_df[x_axis] *= N
+
+            if repeat_in_stretch and N > 0:
+                # Repeat each row N times, preserving order
+                run_df = run_df.loc[run_df.index.repeat(N)].reset_index(drop=True)
 
         run_df = run_df.set_index(x_axis)
 
@@ -204,6 +209,50 @@ def plot_metric_across_runs(
     plt.show()
 
 
+def smooth_dfs(
+    dfs: dict[str, Union[pd.DataFrame, None]],
+    window_size: int,
+    x_axis: str
+) -> dict[str, pd.DataFrame]:
+    """
+    For each (key, df) in `dfs`, if df is not None, replace every column
+    except `x_axis` with its rolling mean over 'window_size' rows,
+    then drop the first (window_size-1) rows (where rolling mean is NaN).
+    Returns a new dict with the same keys, where each DataFrame has been
+    smoothed & truncated.  If dfs[k] was None, the result[k] is still None.
+    """
+    smoothed: dict[str, pd.DataFrame] = {}
+
+    for label, df in dfs.items():
+        if df is None:
+            smoothed[label] = None
+            continue
+
+        # Make sure x_axis exists
+        if x_axis not in df.columns:
+            raise ValueError(f"DataFrame for '{label}' has no column '{x_axis}'")
+
+        # Identify all metric columns (everything except x_axis)
+        metric_cols = [c for c in df.columns if c != x_axis]
+        if not metric_cols:
+            # Nothing to smooth—just keep x_axis
+            smoothed[label] = df.copy()
+            continue
+
+        # Compute rolling mean over the metric columns; keep x_axis untouched
+        rolled_metrics = df[metric_cols].rolling(window=window_size, min_periods=window_size).mean()
+
+        # Truncate the first (window_size-1) rows
+        truncated_metrics = rolled_metrics.iloc[window_size - 1 :].reset_index(drop=True)
+        truncated_x = df[[x_axis]].iloc[window_size - 1 :].reset_index(drop=True)
+
+        # Reconstruct a new DataFrame with x_axis first, then the smoothed columns
+        new_df = pd.concat([truncated_x, truncated_metrics], axis=1)
+        smoothed[label] = new_df
+
+    return smoothed
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     api = wandb.Api()
@@ -220,18 +269,18 @@ def main(cfg: DictConfig) -> None:
     lof_run_ids     = cfg.get("lof_run_ids", [])
 
     flatdqn = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
-                        x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True)
+                        x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True, 
+                        repeat_in_stretch=True)
     flatdqn = flatdqn.rename(columns={"learning/timestep": x_axis})
-    sfols = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
-                      x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
-    lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
-                    x_axis=x_axis, compute_average_from_fsa_reward=False, stretch_x_axis=False)
+    sfols = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
+    lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
 
     dfs = {
     "flatdqn": flatdqn,
     "sfols": sfols,
     "lof": lof
     }
+    dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
     plot_metric_across_runs(
         dfs,
         x_axis="learning/total_timestep",

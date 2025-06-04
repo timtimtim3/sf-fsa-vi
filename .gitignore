@@ -10,6 +10,8 @@ __pycache__/
 # C extensions
 *.so
 
+run_ids.yaml
+
 # Distribution / packaging
 .Python
 build/
