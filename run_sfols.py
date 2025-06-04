@@ -29,6 +29,7 @@ def main(cfg: DictConfig) -> None:
     use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
     fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
     learn_weights = cfg.get("learn_weights", None)
+    dir_postfix = cfg.get("dir_postfix", None)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -118,6 +119,8 @@ def main(cfg: DictConfig) -> None:
 
     # Directory for storing the policies
     directory = train_env.unwrapped.spec.id
+    if dir_postfix is not None:
+        directory = "-".join([directory, dir_postfix])
     base_save_dir = f"results/sfols/{directory}"
     setup_run_dir(base_save_dir, cfg, run_name=run.name, run_id=run.id)
 
