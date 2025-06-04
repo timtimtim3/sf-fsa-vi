@@ -69,21 +69,22 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
 
         run_df = pull_data(run=run, x_axis=x_axis, patterns=patterns)
 
+        fsa_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[0])]
+        fsa_neg_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[1])]
+        N = len(fsa_neg_reward_cols)
+
         if compute_average_from_fsa_reward:
             # Get average run_df performance over tasks
-            fsa_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[0])]
-            fsa_neg_reward_cols = [col for col in run_df.columns if fnmatch.fnmatch(col, patterns[1])]
             run_df = average_cols(run_df, cols=fsa_reward_cols, name="learning/fsa_reward_average")
             run_df = average_cols(run_df, cols=fsa_neg_reward_cols, name="learning/fsa_neg_reward_average")
 
-        if stretch_x_axis:
-            # Stretch x_axis by number of goal‐tasks
-            N = len(fsa_neg_reward_cols)
-            run_df[x_axis] *= N
+            if stretch_x_axis:
+                # Stretch x_axis by number of goal‐tasks
+                run_df[x_axis] *= N
 
-            if repeat_in_stretch and N > 0:
-                # Repeat each row N times, preserving order
-                run_df = run_df.loc[run_df.index.repeat(N)].reset_index(drop=True)
+                if repeat_in_stretch and N > 0:
+                    # Repeat each row N times, preserving order
+                    run_df = run_df.loc[run_df.index.repeat(N)].reset_index(drop=True)
 
         run_df = run_df.set_index(x_axis)
 
@@ -117,7 +118,7 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
     # # Drop any rows where all metric columns (i.e. everything except x_axis) are NaN:
     # metric_cols = [c for c in final_df.columns if c != x_axis]
     # final_df = final_df.dropna(subset=metric_cols, how="all")
-    return final_df
+    return final_df, N
 
 
 def plot_metric_across_runs(
@@ -130,7 +131,9 @@ def plot_metric_across_runs(
     title: Union[str, None] = None,
     std_multiplier: float = 1.0,
     save_dir: str = "results",
-    linewidth: float = 1
+    linewidth: float = 1,
+    save: bool = False,
+    timestamp: Union[str , None] = None
 ):
     """
     Given a dict of DataFrames `dfs` (keyed by label), each containing columns
@@ -196,15 +199,17 @@ def plot_metric_across_runs(
 
     plt.tight_layout()
 
-    # Ensure save directory exists
-    os.makedirs(save_dir, exist_ok=True)
-    # Create timestamp string
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Sanitize ycol for filename (replace slashes)
-    ycol_safe = ycol.replace("/", "_")
-    filename = f"{ycol_safe}_{timestamp}.png"
-    save_path = os.path.join(save_dir, filename)
-    fig.savefig(save_path, dpi=300)
+    if save:
+        # Ensure save directory exists
+        os.makedirs(save_dir, exist_ok=True)
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Sanitize ycol for filename (replace slashes)
+        ycol_safe = ycol.replace("/", "_")
+        filename = f"{ycol_safe}_{timestamp}.png"
+        save_path = os.path.join(save_dir, filename)
+        fig.savefig(save_path, dpi=300)
 
     plt.show()
 
@@ -255,6 +260,8 @@ def smooth_dfs(
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    save = cfg.get("save", False)
+
     api = wandb.Api()
 
     patterns = [
@@ -268,12 +275,12 @@ def main(cfg: DictConfig) -> None:
     sfols_run_ids   = cfg.get("sfols_run_ids", [])
     lof_run_ids     = cfg.get("lof_run_ids", [])
 
-    flatdqn = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
+    flatdqn, n_tasks = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
                         x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True, 
                         repeat_in_stretch=True)
     flatdqn = flatdqn.rename(columns={"learning/timestep": x_axis})
-    sfols = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
-    lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
+    sfols, _ = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
+    lof, _ = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
 
     dfs = {
     "flatdqn": flatdqn,
@@ -281,15 +288,31 @@ def main(cfg: DictConfig) -> None:
     "lof": lof
     }
     dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plot_metric_across_runs(
         dfs,
         x_axis="learning/total_timestep",
         ycol="learning/fsa_neg_reward_average",
         colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
         xlabel="Total Timestep",
-        ylabel="Negative FSA Reward (average)",
-        title="FSA Neg. Reward Average ±1 STD",
-        std_multiplier=1.0
+        ylabel=f"Mean Neg. FSA Reward",
+        title=f"Mean Neg. Reward over {n_tasks} FSA tasks (average) ±1 STD",
+        std_multiplier=1.0,
+        save=save,
+        timestamp=timestamp
+    )
+    plot_metric_across_runs(
+        dfs,
+        x_axis="learning/total_timestep",
+        ycol="learning/fsa_reward_average",
+        colors={"flatdqn": "green", "sfols": "red", "lof": "blue"},
+        xlabel="Total Timestep",
+        ylabel=f"Mean FSA Reward",
+        title=f"Mean Reward over {n_tasks} FSA tasks (average) ±1 STD",
+        std_multiplier=1.0,
+        save=save,
+        timestamp=timestamp
     )
 
 
