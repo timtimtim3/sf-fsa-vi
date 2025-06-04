@@ -107,7 +107,7 @@ def main(cfg: DictConfig) -> None:
     if dir_date_postfix is not None:
         dir_date_postfix = "-" + dir_date_postfix
         directory += dir_date_postfix
-    base_save_dir = f"results/sfols/policies/{directory}"
+    base_save_dir = f"results/sfols/{directory}"
     save_config(cfg, base_dir=base_save_dir, type='play')
 
     gpi_agent.load_tasks(base_save_dir)
