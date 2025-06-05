@@ -10,6 +10,9 @@ import numpy as np
 from datetime import datetime
 
 
+n_tasks = None
+
+
 def pull_data(run, patterns, x_axis="learning/timestep", samples=100000):
     # Pull *all* history so we can see which columns exist
     all_df = run.history(pandas=True, samples=samples)
@@ -118,7 +121,11 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
     # # Drop any rows where all metric columns (i.e. everything except x_axis) are NaN:
     # metric_cols = [c for c in final_df.columns if c != x_axis]
     # final_df = final_df.dropna(subset=metric_cols, how="all")
-    return final_df, N
+
+    global n_tasks
+    if n_tasks is None:
+        n_tasks = N
+    return final_df
 
 
 def plot_metric_across_runs(
@@ -273,6 +280,11 @@ def smooth_dfs(
 def main(cfg: DictConfig) -> None:
     save = cfg.get("save", False)
     truncate_at_min = cfg.get("truncate_at_min", True)
+    save_dir = cfg.get("save_dir", None)
+    if save_dir is None:
+        save_dir = os.path.join("results", "wandb_plots", cfg.env_name)
+    else:
+        save_dir = os.path.join("results", "wandb_plots", save_dir)
 
     api = wandb.Api()
 
@@ -287,12 +299,13 @@ def main(cfg: DictConfig) -> None:
     sfols_run_ids   = cfg.get("sfols_run_ids", [])
     lof_run_ids     = cfg.get("lof_run_ids", [])
 
-    flatdqn, n_tasks = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
+    flatdqn = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
                         x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True, 
                         repeat_in_stretch=True)
-    flatdqn = flatdqn.rename(columns={"learning/timestep": x_axis})
-    sfols, _ = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
-    lof, _ = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
+    if flatdqn is not None:
+        flatdqn = flatdqn.rename(columns={"learning/timestep": x_axis})
+    sfols = pull_runs(api, sfols_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
+    lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
 
     dfs = {
     "flat_dqn": flatdqn,
@@ -320,7 +333,8 @@ def main(cfg: DictConfig) -> None:
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp,
-        truncate_at_min=truncate_at_min
+        truncate_at_min=truncate_at_min,
+        save_dir=save_dir
     )
     plot_metric_across_runs(
         dfs,
@@ -333,7 +347,8 @@ def main(cfg: DictConfig) -> None:
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp,
-        truncate_at_min=truncate_at_min
+        truncate_at_min=truncate_at_min,
+        save_dir=save_dir
     )
 
 
