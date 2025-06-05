@@ -22,7 +22,7 @@ class DummyEnvWrapper(ABC, gym.Env):
 
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
-    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", True)
+    fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
     wrapper = cfg.get("wrapper", None)
 
     # Create the train and eval environments
