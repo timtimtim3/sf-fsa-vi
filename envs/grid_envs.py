@@ -485,7 +485,7 @@ class GridEnvContinuous(ABC, gym.Env):
         self.epsilon = 1e-6  # define small epsilon
         self.movement_clip_range = (-cell_size + self.epsilon, cell_size - self.epsilon)
         self.low = np.array([0.0, 0.0], dtype=np.float32)
-        self.high = np.array([self.width * self.cell_size - self.epsilon, self.height * self.cell_size - self.epsilon],
+        self.high = np.array([self.height * self.cell_size - self.epsilon, self.width * self.cell_size - self.epsilon],
                              dtype=np.float32)
         self.observation_space = Box(low=self.low, high=self.high, dtype=np.float32)
 
