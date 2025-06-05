@@ -272,6 +272,7 @@ def smooth_dfs(
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
     save = cfg.get("save", False)
+    truncate_at_min = cfg.get("truncate_at_min", True)
 
     api = wandb.Api()
 
@@ -318,7 +319,8 @@ def main(cfg: DictConfig) -> None:
         title=f"Mean Neg. Step Reward over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
-        timestamp=timestamp
+        timestamp=timestamp,
+        truncate_at_min=truncate_at_min
     )
     plot_metric_across_runs(
         dfs,
@@ -330,7 +332,8 @@ def main(cfg: DictConfig) -> None:
         title=f"Mean FSA Reward (Success) over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
-        timestamp=timestamp
+        timestamp=timestamp,
+        truncate_at_min=truncate_at_min
     )
 
 
