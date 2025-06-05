@@ -46,7 +46,7 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
         elif "task3" in name:
             fsa_name = "Office-v0-task3"
             init_fun = fsa_officeAreas3
-            
+
     elif  "OfficeAreas" in name and "teleport" in name:
                 
         if "teleport-task1" in name:
@@ -874,8 +874,10 @@ def fsa_A_OR_B(env, fsa_name="fsa"):
 
     fsa.add_state("u0")
     fsa.add_state("u1")
+    fsa.add_state("u2")
 
-    fsa.add_transition("u0", "u1", ["A", "B"])
+    fsa.add_transition("u0", "u1", ["A"])
+    fsa.add_transition("u0", "u2", ["B"])
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -893,10 +895,13 @@ def fsa_A_OR_B(env, fsa_name="fsa"):
         T[0, 1, exit_state_idx] = 1  # Then we transition to u1
     for exit_state_idx in exit_states_idxs[1]:
         T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
-        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+        T[0, 2, exit_state_idx] = 1  # Then we transition to u2
 
     # Stay in the terminal state u1
     T[1, 1, :] = 1
+
+    # Stay in the terminal state u2
+    T[2, 2, :] = 1
 
     return fsa, T
 
