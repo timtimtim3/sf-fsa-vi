@@ -1,6 +1,6 @@
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import List, Dict, Tuple, Optional, Union
+from dataclasses import dataclass, field, fields
+from typing import List, Dict, Tuple, Optional, Type, Union
 import numpy as np
 import re
 from envs.utils import gaussian_rbf_features, fourier_features
@@ -230,6 +230,60 @@ class LevelDataOfficeAreasFourier(LevelDataOfficeAreas):
 
     def __post_init__(self):
         self.FEAT_DATA = {symbol: deepcopy(self.FREQUENCY_PAIRS) for symbol in self.PHI_OBJ_TYPES}
+
+
+@dataclass
+class TeleportMixin:
+    """
+    Mixin that adds a TELEPORT_MAP field to an existing level dataclass.
+    TELEPORT_MAP should be a NumPy array (same shape as MAP) indicating
+    teleport‐destinations or -flags.
+    """
+    TELEPORT_MAP: np.ndarray = field(default_factory=lambda: np.empty((0,0)))
+    TELEPORT_TRANSITIONS: Dict[str, Dict[str, float]] = field(default_factory=dict)
+
+
+def with_teleport(base_cls: Type) -> Type:
+    """
+    Dynamically produce a new dataclass that inherits from (TeleportMixin, base_cls).
+    Usage:
+        TeleportOfficeAreas = with_teleport(LevelDataOfficeAreas)
+        obj = TeleportOfficeAreas(MAP=..., PHI_OBJ_TYPES=[...], RENDER_COLOR_MAP={...},
+                                  TELEPORT_MAP=..., QVAL_COLOR_MAP=None)
+    """
+    # Build a new class name
+    new_name = f"Teleport{base_cls.__name__}"
+
+    # Create a new subclass on the fly:
+    NewType = type(
+        new_name,
+        (TeleportMixin, base_cls),
+        {}
+    )
+
+    # Convert it into a dataclass:
+    return dataclass(NewType)
+
+
+def wrap_level_with_teleport(level_instance, teleport_map: np.ndarray):
+    """
+    Given an existing dataclass instance (e.g. LevelDataOfficeAreasFourier, LevelDataOfficeAreasRBF, etc.)
+    and a NumPy array `teleport_map`, returns a new instance of Teleport{BaseClass} that has exactly the
+    same field‐values as `level_instance` plus TELEPORT_MAP=teleport_map.
+    """
+    BaseCls = level_instance.__class__
+    # Dynamically build Teleport{BaseCls.__name__}
+    TeleportCls = with_teleport(BaseCls)
+
+    # Gather all field‐names/values from the original instance
+    init_kwargs = {}
+    for f in fields(BaseCls):
+        init_kwargs[f.name] = getattr(level_instance, f.name)
+
+    # Add the teleport map
+    init_kwargs["TELEPORT_MAP"] = teleport_map
+
+    return TeleportCls(**init_kwargs)
 
 
 original_office_areas = LevelDataOfficeAreas(
@@ -731,6 +785,85 @@ original_office_areas_no_obs_rbf = LevelDataOfficeAreasRBF(
 original_office = expand_level_symbols(original_office_areas)
 
 
+TeleportRBF = with_teleport(LevelDataOfficeAreasRBF)
+office_areas_rbf_teleport = TeleportRBF(
+    MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', 'A', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    PHI_OBJ_TYPES=['A', 'B'],
+    RENDER_COLOR_MAP={
+        "A": [0.6, 0.3, 0],  # Brown
+        "B": [1, 0.6, 0],  # Orange
+        # "C": [0.5, 0, 0.5],  # Purple
+        # "D": [0, 0.5, 0],  # Dark Green
+        "X": [0, 0, 0],  # Black (Walls)
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    },
+    RBF_MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', 'A_RBF', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B_RBF', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    MAP_DEFAULT_D_RBFS=1,
+    QVAL_COLOR_MAP={
+        "X": 3,  # Walls
+        " ": 2,  # Empty Space
+        "_": 2,  # Start location (same as empty space)
+        "A": 0,  # Object A
+        "B": 1,  # Object B
+        # "C": 2,  # Object C
+    },
+    TELEPORT_MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', 'T2', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'T3', ' '],
+        [' ', 'A', ' ', ' ', ' ', 'X', ' ', ' ', ' ', 'B', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', 'T1', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', '_', ' ', ' ', ' ', ' ', ' '],
+    ]),
+    TELEPORT_TRANSITIONS={"T1": {"T2": 0.5, "T3": 0.5}}
+)
+
+
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
     "office_areas": office_areas,
@@ -754,5 +887,6 @@ LEVELS = {
     "original_office_areas": original_office_areas,
     "original_office_areas_rbf": original_office_areas_rbf,
     "original_office_areas_no_obs_rbf": original_office_areas_no_obs_rbf,
-    "original_office": original_office
+    "original_office": original_office,
+    "office_areas_rbf_teleport": office_areas_rbf_teleport
 }

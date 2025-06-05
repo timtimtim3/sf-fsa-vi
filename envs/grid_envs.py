@@ -5,7 +5,7 @@ import gym
 from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf, normalize_state
-from envs.grid_levels import LEVELS
+from envs.grid_levels import LEVELS, TeleportMixin
 from typing import Protocol, Tuple, Dict, Any, TYPE_CHECKING, Union, List
 
 if TYPE_CHECKING:
@@ -203,6 +203,16 @@ class GridEnv(ABC, gym.Env):
         row, col = state
         return not (col < 0 or col >= self.width or row < 0 or row >= self.height or (row, col) in self.occupied)
 
+    def teleport(self, cell):
+        # Teleport randomly to one of the destination teleporters
+        probs = self.TELEPORT_TRANSITIONS[cell]["probs"]
+        to_coords = self.TELEPORT_TRANSITIONS[cell]["coords"]
+
+        # Choose one according to probs
+        idx = np.random.choice(len(to_coords), p=probs)
+        cell = to_coords[idx]
+        return cell
+
     def step(self, action):
         # Movement
         old_state = self.state
@@ -210,6 +220,10 @@ class GridEnv(ABC, gym.Env):
         old_state_index = self.coords_to_state[old_state]
         new_state_index = np.random.choice(a=self.s_dim, p=self.P[old_state_index, action])
         new_state = self.state_to_coords[new_state_index]
+
+        if hasattr(self, "TELEPORT_COORDS") and new_state in self.TELEPORT_COORDS:
+            # If we moved into a teleporter, teleport randomly to one of the destination teleporters
+            new_state = self.teleport(new_state)
 
         self.state = new_state
 
@@ -655,6 +669,16 @@ class GridEnvContinuous(ABC, gym.Env):
             dx, dy = self.step_size * dx, self.step_size * dy
         return dx, dy
 
+    def teleport(self, cell):
+        # Teleport randomly to one of the destination teleporters
+        probs = self.TELEPORT_TRANSITIONS[cell]["probs"]
+        to_coords = self.TELEPORT_TRANSITIONS[cell]["coords"]
+
+        # Choose one according to probs
+        idx = np.random.choice(len(to_coords), p=probs)
+        cell = to_coords[idx]
+        return cell
+
     def step(self, action):
         old_state = self.state.copy()
         old_cell  = self.state_cell  # (old_row, old_col)
@@ -720,6 +744,11 @@ class GridEnvContinuous(ABC, gym.Env):
                 cell_min = np.array([r, c], dtype=np.float32) * self.cell_size
                 cell_max = cell_min + self.cell_size - self.epsilon
                 new_state = np.clip(new_state, cell_min, cell_max)
+
+            if hasattr(self, "TELEPORT_COORDS") and new_cell in self.TELEPORT_COORDS:
+                # If we moved into a teleporter, teleport randomly to one of the destination teleporters
+                new_cell = self.teleport(new_cell)
+                new_state = self.cell_to_continuous_center(new_cell)
 
             # finally update
             self.state = new_state
@@ -1532,6 +1561,27 @@ class OfficeAreasFeatures(GridEnv):
 
     def get_weight_idxs_for_symbol(self, symbol):
         return self.feature_extractor.feat_indices[symbol]
+    
+
+def get_teleport_transitions_from_map(level: TeleportMixin):
+    transitions = {}
+
+    symbol_to_coords = {}
+    for i in range(len(level.TELEPORT_MAP)):
+        row = level.TELEPORT_MAP[i]
+        for j in range(len(row)):
+            symbol = row[j]
+            if 'T' in symbol:
+                symbol_to_coords[symbol] = (i, j)
+
+    for teleport_symbol in level.TELEPORT_TRANSITIONS.keys():
+        coords = symbol_to_coords[teleport_symbol]
+        transitions[coords] = {"probs": [], "coords": []}
+        for teleport_to_symbol, prob in level.TELEPORT_TRANSITIONS[teleport_symbol].items():
+            to_coords = symbol_to_coords[teleport_to_symbol]
+            transitions[coords]["probs"].append(prob)
+            transitions[coords]["coords"].append(to_coords)
+    return transitions
 
 
 class OfficeAreasFeaturesMixin(GridEnvProtocol):
@@ -1576,6 +1626,11 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         self.RENDER_COLOR_MAP = level.RENDER_COLOR_MAP
         self.QVAL_COLOR_MAP = level.QVAL_COLOR_MAP
         self.FEAT_FN = level.FEAT_FN
+        
+        if isinstance(level, TeleportMixin):
+            self.TELEPORT_TRANSITIONS = get_teleport_transitions_from_map(level)
+            self.TELEPORT_COORDS = set(self.TELEPORT_TRANSITIONS.keys())
+
         self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
             False
         self.term_only_on_term_action = term_only_on_term_action

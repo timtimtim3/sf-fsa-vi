@@ -10,6 +10,8 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
 
     fsa_name = name
 
+    print(name)
+
     if name == "PickupDropoff-v0-task1":
         init_fun = fsa_pickup_dropoff1
     elif name == "PickupDropoff-v0-task2":    
@@ -44,9 +46,21 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
         elif "task3" in name:
             fsa_name = "Office-v0-task3"
             init_fun = fsa_officeAreas3
-
+            
+    elif  "OfficeAreas" in name and "teleport" in name:
+                
+        if "teleport-task1" in name:
+            fsa_name = "Office-v0-teleport-task1"
+            init_fun = fsa_A_THEN_B
+        elif "teleport-task2" in name:
+            fsa_name = "Office-v0-teleport-task2"
+            init_fun = fsa_A_OR_B
+        elif "teleport-task3" in name:
+            fsa_name = "Office-v0-teleport-task3"
+            init_fun = fsa_A_AND_B
+            
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":
-        init_fun = fsa_officeAreasSemiCircle1
+        init_fun = fsa_A_THEN_B
     else:
         raise NameError()
 
@@ -807,7 +821,7 @@ def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa"):
     return fsa, T
 
 
-def fsa_officeAreasSemiCircle1(env, fsa_name="fsa"):
+def fsa_A_THEN_B(env, fsa_name="fsa"):
     # Sequential: Go to A, then B
     # A -> B
 
@@ -846,6 +860,97 @@ def fsa_officeAreasSemiCircle1(env, fsa_name="fsa"):
 
     # Stay in the terminal state u2
     T[2, 2, :] = 1
+
+    return fsa, T
+
+def fsa_A_OR_B(env, fsa_name="fsa"):
+    # Disjunctive: Go to A OR B
+    # A -> B
+
+    symbols_to_phi = {"A": 0,
+                      "B": 1}
+
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+
+    fsa.add_transition("u0", "u1", ["A", "B"])
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    exit_states_idxs = {}
+    for proposition_idx, exit_states_set in env.exit_states.items():
+        exit_states_idxs[proposition_idx] = set()
+        for exit_state in exit_states_set:
+            exit_state_idx = env.coords_to_state[exit_state]
+            exit_states_idxs[proposition_idx].add(exit_state_idx)
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+
+    # Stay in the terminal state u1
+    T[1, 1, :] = 1
+
+    return fsa, T
+
+def fsa_A_AND_B(env, fsa_name="fsa"):
+    # Conjunctive: Go to A AND B in any order
+    # A -> B
+
+    symbols_to_phi = {"A": 0,
+                      "B": 1}
+
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+
+    fsa.add_transition("u0", "u1", ["A"])
+    fsa.add_transition("u0", "u2", ["B"])
+    fsa.add_transition("u1", "u3", ["B"])
+    fsa.add_transition("u2", "u3", ["A"])
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    exit_states_idxs = {}
+    for proposition_idx, exit_states_set in env.exit_states.items():
+        exit_states_idxs[proposition_idx] = set()
+        for exit_state in exit_states_set:
+            exit_state_idx = env.coords_to_state[exit_state]
+            exit_states_idxs[proposition_idx].add(exit_state_idx)
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
+        T[0, 2, exit_state_idx] = 1  # Then we transition to u2
+
+    # Transition from u1 to u1 in all cases
+    T[1, 1, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
+        T[1, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u2 to u2 in all cases
+    T[2, 2, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[2, 2, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[2, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Stay in the terminal state u3
+    T[3, 3, :] = 1
 
     return fsa, T
 
