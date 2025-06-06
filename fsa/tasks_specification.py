@@ -761,10 +761,10 @@ def fsa_officeAreas2(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     fsa.add_state("u2")
     fsa.add_state("u3")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])  # C
-    fsa.add_transition("u0", "u2", [symbols[1]])  # M
-    fsa.add_transition("u1", "u3", [symbols[2]])  # O
-    fsa.add_transition("u2", "u3", [symbols[2]])  # O
+    fsa.add_transition("u0", "u1", symbols[0])  # C
+    fsa.add_transition("u0", "u2", symbols[1])  # M
+    fsa.add_transition("u1", "u3", symbols[2])  # O
+    fsa.add_transition("u2", "u3", symbols[2])  # O
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -819,11 +819,11 @@ def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     fsa.add_state("u3")
     fsa.add_state("u4")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])  # C
-    fsa.add_transition("u0", "u2", [symbols[1]])  # M
-    fsa.add_transition("u1", "u3", [symbols[1]])  # M
-    fsa.add_transition("u2", "u3", [symbols[0]])  # C
-    fsa.add_transition("u3", "u4", [symbols[2]])  # O
+    fsa.add_transition("u0", "u1", symbols[0])  # C
+    fsa.add_transition("u0", "u2", symbols[1])  # M
+    fsa.add_transition("u1", "u3", symbols[1])  # M
+    fsa.add_transition("u2", "u3", symbols[0])  # C
+    fsa.add_transition("u3", "u4", symbols[2])  # O
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -884,11 +884,11 @@ def fsa_officeAreas4(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     fsa.add_state("u4")
     fsa.add_state("u5")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])
-    fsa.add_transition("u1", "u2", [symbols[1]])
-    fsa.add_transition("u2", "u3", [symbols[2]])
-    fsa.add_transition("u3", "u4", [symbols[1]])
-    fsa.add_transition("u4", "u5", [symbols[0]])
+    fsa.add_transition("u0", "u1", symbols[0])
+    fsa.add_transition("u1", "u2", symbols[1])
+    fsa.add_transition("u2", "u3", symbols[2])
+    fsa.add_transition("u3", "u4", symbols[1])
+    fsa.add_transition("u4", "u5", symbols[0])
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -952,13 +952,13 @@ def fsa_officeAreas5(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     fsa.add_state("u5")
     fsa.add_state("u6")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])  # C
-    fsa.add_transition("u0", "u2", [symbols[1]])  # M
-    fsa.add_transition("u1", "u3", [symbols[2]])  # O
-    fsa.add_transition("u2", "u3", [symbols[2]])  # O
-    fsa.add_transition("u3", "u4", [symbols[1]])  # M
-    fsa.add_transition("u4", "u5", [symbols[0]])  # C
-    fsa.add_transition("u4", "u6", [symbols[2]])  # O
+    fsa.add_transition("u0", "u1", symbols[0])  # C
+    fsa.add_transition("u0", "u2", symbols[1])  # M
+    fsa.add_transition("u1", "u3", symbols[2])  # O
+    fsa.add_transition("u2", "u3", symbols[2])  # O
+    fsa.add_transition("u3", "u4", symbols[1])  # M
+    fsa.add_transition("u4", "u5", symbols[0])  # C
+    fsa.add_transition("u4", "u6", symbols[2])  # O
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
@@ -1032,16 +1032,16 @@ def fsa_officeAreas6(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     fsa.add_state("u7")
     fsa.add_state("u8")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])  # C
-    fsa.add_transition("u0", "u2", [symbols[1]])  # M
-    fsa.add_transition("u1", "u3", [symbols[1]])  # M
-    fsa.add_transition("u2", "u3", [symbols[0]])  # C
-    fsa.add_transition("u3", "u4", [symbols[2]])  # O
+    fsa.add_transition("u0", "u1", symbols[0])  # C
+    fsa.add_transition("u0", "u2", symbols[1])  # M
+    fsa.add_transition("u1", "u3", symbols[1])  # M
+    fsa.add_transition("u2", "u3", symbols[0])  # C
+    fsa.add_transition("u3", "u4", symbols[2])  # O
 
-    fsa.add_transition("u4", "u5", [symbols[0]])  # C
-    fsa.add_transition("u4", "u6", [symbols[1]])  # M
-    fsa.add_transition("u5", "u7", [symbols[1]])  # M
-    fsa.add_transition("u6", "u8", [symbols[0]])  # C
+    fsa.add_transition("u4", "u5", symbols[0])  # C
+    fsa.add_transition("u4", "u6", symbols[1])  # M
+    fsa.add_transition("u5", "u7", symbols[1])  # M
+    fsa.add_transition("u6", "u8", symbols[0])  # C
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
 
