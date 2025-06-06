@@ -2,7 +2,7 @@ from .fsa import FiniteStateAutomaton
 import numpy as np
 
 
-def load_fsa(name: str, env, fsa_symbols_from_env=False):
+def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
     symbols_to_phi = None
     if fsa_symbols_from_env:
         symbols = env.PHI_OBJ_TYPES
@@ -67,6 +67,8 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False):
     kwargs = {}
     if symbols_to_phi is not None:
         kwargs["symbols_to_phi"] = symbols_to_phi
+    if using_lof is not None:
+        kwargs["using_lof"] = using_lof
     g = init_fun(env, fsa_name=fsa_name, **kwargs)
     
     return g
@@ -641,15 +643,55 @@ def fsa_office3(env, fsa_name="fsa"):
     return fsa, T
 
 
-def fsa_officeAreas1(env, symbols_to_phi=None, fsa_name="fsa"):
+def concat_same_kind_symbols(symbols):
+    new_symbols = []
+    kind_index = {}            # kind → index in new_symbols
+    orig_to_new = {}           # original index → new index
+
+    for i, symbol_list in enumerate(symbols):
+        sym = symbol_list[0]   # e.g. "C1" or "C2" or "M"
+        kind = sym[0]          # first character
+
+        if kind in kind_index:
+            idx = kind_index[kind]
+            new_symbols[idx].append(sym)
+        else:
+            idx = len(new_symbols)
+            kind_index[kind] = idx
+            new_symbols.append([sym])
+
+        orig_to_new[i] = idx
+
+    return new_symbols, orig_to_new
+
+
+def get_exit_states_idxs(env, orig_to_new, using_lof):
+    exit_states_idxs = {}
+    for proposition_idx, exit_states_set in env.exit_states.items():
+        proposition_idx = proposition_idx if not using_lof else orig_to_new[proposition_idx]
+        if proposition_idx not in exit_states_idxs:
+            exit_states_idxs[proposition_idx] = set()
+
+        for exit_state in exit_states_set:
+            exit_state_idx = env.coords_to_state[exit_state]
+            exit_states_idxs[proposition_idx].add(exit_state_idx)
+    return exit_states_idxs
+
+
+def fsa_officeAreas1(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     # Sequential: Go to A, then B, then C.
     # A -> B -> C
 
     if symbols_to_phi is None:
-        symbols_to_phi = {"A": 0,
-                          "B": 1,
-                          "C": 2}
-    symbols = list(symbols_to_phi.keys())
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
 
     fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
@@ -658,18 +700,11 @@ def fsa_officeAreas1(env, symbols_to_phi=None, fsa_name="fsa"):
     fsa.add_state("u2")
     fsa.add_state("u3")
 
-    fsa.add_transition("u0", "u1", [symbols[0]])
-    fsa.add_transition("u1", "u2", [symbols[1]])
-    fsa.add_transition("u2", "u3", [symbols[2]])
+    fsa.add_transition("u0", "u1", symbols[0])
+    fsa.add_transition("u1", "u2", symbols[1])
+    fsa.add_transition("u2", "u3", symbols[2])
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
-
-    exit_states_idxs = {}
-    for proposition_idx, exit_states_set in env.exit_states.items():
-        exit_states_idxs[proposition_idx] = set()
-        for exit_state in exit_states_set:
-            exit_state_idx = env.coords_to_state[exit_state]
-            exit_states_idxs[proposition_idx].add(exit_state_idx)
 
     # Transition from u0 to u0 in all cases
     T[0, 0, :] = 1
@@ -695,15 +730,20 @@ def fsa_officeAreas1(env, symbols_to_phi=None, fsa_name="fsa"):
     return fsa, T
 
 
-def fsa_officeAreas2(env, symbols_to_phi=None, fsa_name="fsa"):
+def fsa_officeAreas2(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     # OR: Get coffee OR email, then office.
     # (COFFEE v MAIL) -> OFFICE
 
     if symbols_to_phi is None:
-        symbols_to_phi = {"A": 0,
-                          "B": 1,
-                          "C": 2}
-    symbols = list(symbols_to_phi.keys())
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
 
     fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
@@ -718,13 +758,6 @@ def fsa_officeAreas2(env, symbols_to_phi=None, fsa_name="fsa"):
     fsa.add_transition("u2", "u3", [symbols[2]])  # O
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
-
-    exit_states_idxs = {}
-    for proposition_idx, exit_states_set in env.exit_states.items():
-        exit_states_idxs[proposition_idx] = set()
-        for exit_state in exit_states_set:
-            exit_state_idx = env.coords_to_state[exit_state]
-            exit_states_idxs[proposition_idx].add(exit_state_idx)
 
     # Transition from u0 to u0 in all cases
     T[0, 0, :] = 1
@@ -754,15 +787,20 @@ def fsa_officeAreas2(env, symbols_to_phi=None, fsa_name="fsa"):
     return fsa, T
 
 
-def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa"):
+def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
     # OR: Get coffee AND email, then office.
     # (COFFEE ^ MAIL) -> OFFICE
 
     if symbols_to_phi is None:
-        symbols_to_phi = {"A": 0,
-                          "B": 1,
-                          "C": 2}
-    symbols = list(symbols_to_phi.keys())
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
 
     fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
 
@@ -779,13 +817,6 @@ def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa"):
     fsa.add_transition("u3", "u4", [symbols[2]])  # O
 
     T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
-
-    exit_states_idxs = {}
-    for proposition_idx, exit_states_set in env.exit_states.items():
-        exit_states_idxs[proposition_idx] = set()
-        for exit_state in exit_states_set:
-            exit_state_idx = env.coords_to_state[exit_state]
-            exit_states_idxs[proposition_idx].add(exit_state_idx)
 
     # Transition from u0 to u0 in all cases
     T[0, 0, :] = 1
@@ -820,6 +851,246 @@ def fsa_officeAreas3(env, symbols_to_phi=None, fsa_name="fsa"):
 
     return fsa, T
 
+def fsa_officeAreas4(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
+    # Sequential: Go to A, then B, then C, then B, then A
+    # A -> B -> C -> B -> C
+
+    if symbols_to_phi is None:
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
+
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+    fsa.add_state("u4")
+    fsa.add_state("u5")
+
+    fsa.add_transition("u0", "u1", [symbols[0]])
+    fsa.add_transition("u1", "u2", [symbols[1]])
+    fsa.add_transition("u2", "u3", [symbols[2]])
+    fsa.add_transition("u3", "u4", [symbols[1]])
+    fsa.add_transition("u4", "u5", [symbols[0]])
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+
+    # Transition from u1 to u1 in all cases
+    T[1, 1, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
+        T[1, 2, exit_state_idx] = 1  # Then we transition to u2
+
+    # Transition from u2 to u2 in all cases
+    T[2, 2, :] = 1
+    for exit_state_idx in exit_states_idxs[2]:
+        T[2, 2, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[2, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u3 to u3 in all cases
+    T[3, 3, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[3, 3, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area B
+        T[3, 4, exit_state_idx] = 1  # Then we transition to u4
+
+    # Transition from u4 to u4 in all cases
+    T[4, 4, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[4, 4, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area A
+        T[4, 5, exit_state_idx] = 1  # Then we transition to u5
+
+    # Stay in the terminal state u5
+    T[5, 5, :] = 1
+
+    return fsa, T
+
+def fsa_officeAreas5(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
+    # OR: Get coffee OR email, then office.
+    # (COFFEE v MAIL) -> OFFICE -> MAIL -> (COFFEE or OFFICE)
+
+    if symbols_to_phi is None:
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
+
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+    fsa.add_state("u4")
+    fsa.add_state("u5")
+    fsa.add_state("u6")
+
+    fsa.add_transition("u0", "u1", [symbols[0]])  # C
+    fsa.add_transition("u0", "u2", [symbols[1]])  # M
+    fsa.add_transition("u1", "u3", [symbols[2]])  # O
+    fsa.add_transition("u2", "u3", [symbols[2]])  # O
+    fsa.add_transition("u3", "u4", [symbols[1]])  # M
+    fsa.add_transition("u4", "u5", [symbols[0]])  # C
+    fsa.add_transition("u4", "u6", [symbols[2]])  # O
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[0, 2, exit_state_idx] = 1  # Then we transition to u2
+
+    # Transition from u1 to u1 in all cases
+    T[1, 1, :] = 1
+    for exit_state_idx in exit_states_idxs[2]:
+        T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area O
+        T[1, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u2 to u2 in all cases
+    T[2, 2, :] = 1
+    for exit_state_idx in exit_states_idxs[2]:
+        T[2, 2, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area O
+        T[2, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u3 to u3 in all cases
+    T[3, 3, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[3, 3, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[3, 4, exit_state_idx] = 1  # Then we transition to u4
+
+    # Transition from u4 to u4 in all cases
+    T[4, 4, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[4, 4, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[4, 5, exit_state_idx] = 1  # Then we transition to u5
+    for exit_state_idx in exit_states_idxs[2]:
+        T[4, 4, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area O
+        T[4, 6, exit_state_idx] = 1  # Then we transition to u6
+
+    # Stay in the terminal states u5 and u6
+    T[5, 5, :] = 1
+    T[6, 6, :] = 1
+
+    return fsa, T
+
+def fsa_officeAreas6(env, symbols_to_phi=None, fsa_name="fsa", using_lof=False):
+    # OR: Get coffee AND email, then office,
+    # (COFFEE ^ MAIL) -> OFFICE -> (COFFEE ^ MAIL)
+
+    if symbols_to_phi is None:
+        symbols_to_phi = {"A": 0, "B": 1, "C": 2}
+    symbols = list(symbols_to_phi.keys())  # e.g. ["A", "B", "C"]
+    symbols = [[s] for s in symbols]  # results in [["A"], ["B"], ["C"]]
+    if using_lof:
+        symbols, orig_to_new = concat_same_kind_symbols(symbols)
+    else:
+        orig_to_new = None
+
+    exit_states_idxs = get_exit_states_idxs(env, orig_to_new, using_lof)
+
+    fsa = FiniteStateAutomaton(symbols_to_phi, fsa_name=fsa_name)
+
+    fsa.add_state("u0")
+    fsa.add_state("u1")
+    fsa.add_state("u2")
+    fsa.add_state("u3")
+    fsa.add_state("u4")
+
+    fsa.add_state("u5")
+    fsa.add_state("u6")
+    fsa.add_state("u7")
+    fsa.add_state("u8")
+
+    fsa.add_transition("u0", "u1", [symbols[0]])  # C
+    fsa.add_transition("u0", "u2", [symbols[1]])  # M
+    fsa.add_transition("u1", "u3", [symbols[1]])  # M
+    fsa.add_transition("u2", "u3", [symbols[0]])  # C
+    fsa.add_transition("u3", "u4", [symbols[2]])  # O
+
+    fsa.add_transition("u4", "u5", [symbols[0]])  # C
+    fsa.add_transition("u4", "u6", [symbols[1]])  # M
+    fsa.add_transition("u5", "u7", [symbols[1]])  # M
+    fsa.add_transition("u6", "u8", [symbols[0]])  # C
+
+    T = np.zeros((len(fsa.states), len(fsa.states), env.s_dim))
+
+    # Transition from u0 to u0 in all cases
+    T[0, 0, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[0, 1, exit_state_idx] = 1  # Then we transition to u1
+
+    for exit_state_idx in exit_states_idxs[1]:
+        T[0, 0, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[0, 2, exit_state_idx] = 1  # Then we transition to u2
+
+    # Transition from u1 to u1 in all cases
+    T[1, 1, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[1, 1, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[1, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u2 to u2 in all cases
+    T[2, 2, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[2, 2, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[2, 3, exit_state_idx] = 1  # Then we transition to u3
+
+    # Transition from u3 to u3 in all cases
+    T[3, 3, :] = 1
+    for exit_state_idx in exit_states_idxs[2]:
+        T[3, 3, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area O
+        T[3, 4, exit_state_idx] = 1  # Then we transition to u4
+
+    # Transition from u4 to u4 in all cases
+    T[4, 4, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[4, 4, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[4, 5, exit_state_idx] = 1  # Then we transition to u5
+
+    for exit_state_idx in exit_states_idxs[1]:
+        T[4, 4, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[4, 6, exit_state_idx] = 1  # Then we transition to u6
+
+    # Transition from u5 to u5 in all cases
+    T[5, 5, :] = 1
+    for exit_state_idx in exit_states_idxs[1]:
+        T[5, 5, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area M
+        T[5, 7, exit_state_idx] = 1  # Then we transition to u7
+
+    # Transition from u6 to u6 in all cases
+    T[6, 6, :] = 1
+    for exit_state_idx in exit_states_idxs[0]:
+        T[6, 6, exit_state_idx] = 0  # Except if we are in some exit state tile located in Area C
+        T[6, 8, exit_state_idx] = 1  # Then we transition to u8
+
+    # Stay in the terminal state u7 and u8
+    T[7, 7, :] = 1
+    T[8, 8, :] = 1
+
+    return fsa, T
 
 def fsa_A_THEN_B(env, fsa_name="fsa"):
     # Sequential: Go to A, then B
