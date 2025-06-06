@@ -46,6 +46,15 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
         elif "task3" in name:
             fsa_name = "Office-v0-task3"
             init_fun = fsa_officeAreas3
+        elif "task4" in name:
+            fsa_name = "Office-v0-task4"
+            init_fun = fsa_officeAreas4
+        elif "task5" in name:
+            fsa_name = "Office-v0-task5"
+            init_fun = fsa_officeAreas5
+        elif "task6" in name:
+            fsa_name = "Office-v0-task6"
+            init_fun = fsa_officeAreas6
 
     elif "Office" in name and "teleport" in name:
                 
