@@ -13,7 +13,7 @@ from sfols.rl.successor_features.ols import OLS
 from fsa.tasks_specification import load_fsa
 from omegaconf import DictConfig, OmegaConf, ListConfig
 from envs.wrappers import GridEnvWrapper
-from utils.utils import seed_everything, do_planning, setup_run_dir
+from utils.utils import get_base_save_dir, seed_everything, do_planning, setup_run_dir
 from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 
@@ -30,6 +30,9 @@ def main(cfg: DictConfig) -> None:
     fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
     learn_weights = cfg.get("learn_weights", None)
     dir_postfix = cfg.get("dir_postfix", None)
+    use_batch_dir = cfg.get("use_batch_dir", False)
+    batch_dir_postfix = cfg.get("batch_dir_postfix", None)
+    batch_run_name = cfg.get("batch_run_name", None)
     os.environ["WANDB_SYMLINKS"] = "False"
 
     # Init Wandb
@@ -117,11 +120,8 @@ def main(cfg: DictConfig) -> None:
     # Need to add the constraint, which sets add some restriction to the extrema weights.
     ols = OLS(m=train_env.feat_dim, **cfg.ols, restriction=cfg.env.restriction)
 
-    # Directory for storing the policies
-    directory = train_env.unwrapped.spec.id
-    if dir_postfix is not None:
-        directory = "-".join([directory, dir_postfix])
-    base_save_dir = f"results/sfols/{directory}"
+    base_save_dir = get_base_save_dir(train_env, dir_postfix, use_batch_dir, batch_run_name, batch_dir_postfix, 
+                                      method="sfols")
     setup_run_dir(base_save_dir, cfg, run_name=run.name, run_id=run.id)
 
     unique_symbol_for_centers = False
