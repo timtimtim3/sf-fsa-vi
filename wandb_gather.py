@@ -329,8 +329,6 @@ def main(cfg: DictConfig) -> None:
     "sfols_dqn": sfols,
     "lof_dqn": lof
     }
-    print(dfs["flat_dqn"])
-    print(dfs["sfols_dqn"])
     dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
     # colors = {
     #     "lof_dqn":     "#1f77b4",  # blue
@@ -338,7 +336,6 @@ def main(cfg: DictConfig) -> None:
     #     # "sfols_dqn":   "#d62728",  # red
     #     "sfols_dqn":   "#ff7f0e",
     # }
-    print(dfs["flat_dqn"])
     colors = None
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
