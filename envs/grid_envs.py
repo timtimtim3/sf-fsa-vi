@@ -5,7 +5,7 @@ import gym
 from gym.spaces import Discrete, Box, MultiDiscrete
 from abc import ABC, abstractmethod
 from envs.utils import gaussian_rbf, normalize_state
-from envs.grid_levels import LEVELS, TeleportMixin
+from envs.grid_levels import LEVELS, TeleportMixin, WindMixin
 from typing import Protocol, Tuple, Dict, Any, TYPE_CHECKING, Union, List
 
 if TYPE_CHECKING:
@@ -224,6 +224,26 @@ class GridEnv(ABC, gym.Env):
         if hasattr(self, "TELEPORT_COORDS") and new_state in self.TELEPORT_COORDS:
             # If we moved into a teleporter, teleport randomly to one of the destination teleporters
             new_state = self.teleport(new_state)
+
+        if hasattr(self, "MAX_WIND") and new_state not in self.object_ids:
+            # 1) Move one extra to the right if possible
+            y, x = new_state
+            if self.is_state_valid((y, x + 1)):
+                x = x + 1
+
+            # 2) Sample integer wind
+            wind = np.random.randint(-self.MAX_WIND, self.MAX_WIND + 1)
+
+            # 3) Apply wind
+            y += wind
+
+            # 4) Clip to integer grid‐bounds
+            low, high = self.get_observation_bounds()
+            # low = [0, 0], high = [height-1, width-1]
+            y = int(np.clip(y, low[0], high[0]))
+            x = int(np.clip(x, low[1], high[1]))
+
+            new_state = (y, x)
 
         self.state = new_state
 
@@ -749,6 +769,19 @@ class GridEnvContinuous(ABC, gym.Env):
                 # If we moved into a teleporter, teleport randomly to one of the destination teleporters
                 new_cell = self.teleport(new_cell)
                 new_state = self.cell_to_continuous_center(new_cell)
+
+            if hasattr(self, "MAX_WIND") and new_cell not in self.object_ids:
+                # Move one (extra) to the right
+                state_to_the_right = (new_state[0], new_state[1] + 1)
+                new_state = state_to_the_right
+
+                # Blow random wind up or down, uniformly from [-MAX_WIND, MAX_WIND]
+                random_wind = np.random.uniform(-self.MAX_WIND, self.MAX_WIND)
+                state_with_wind = (new_state[0] + random_wind, new_state[1])
+
+                # Clip to env boundaries
+                new_state = np.clip(state_with_wind, self.observation_space.low, self.observation_space.high)
+                new_cell = self.continuous_to_cell(new_state)
 
             # finally update
             self.state = new_state
@@ -1630,6 +1663,9 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         if isinstance(level, TeleportMixin):
             self.TELEPORT_TRANSITIONS = get_teleport_transitions_from_map(level)
             self.TELEPORT_COORDS = set(self.TELEPORT_TRANSITIONS.keys())
+
+        if isinstance(level, WindMixin):
+            self.MAX_WIND = level.MAX_WIND
 
         self.remove_redundant_features = level.REMOVE_REDUNDANT_FEAT if level.REMOVE_REDUNDANT_FEAT is not None else \
             False

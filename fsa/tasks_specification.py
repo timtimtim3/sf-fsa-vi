@@ -56,16 +56,18 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
             fsa_name = "Office-v0-task6"
             init_fun = fsa_officeAreas6
 
-    elif "Office" in name and "teleport" in name:
-                
-        if "teleport-task1" in name:
-            fsa_name = "Office-v0-teleport-task1"
+    elif "Office" in name and ("teleport" in name or "doubleSlit" in name):
+
+        level_name = next(v for v in ("teleport", "doubleSlit") if v in name)
+
+        if "task1" in name:
+            fsa_name = f"Office-v0-{level_name}-task1"
             init_fun = fsa_A_THEN_B
-        elif "teleport-task2" in name:
-            fsa_name = "Office-v0-teleport-task2"
+        elif "task2" in name:
+            fsa_name = f"Office-v0-{level_name}-task2"
             init_fun = fsa_A_OR_B
-        elif "teleport-task3" in name:
-            fsa_name = "Office-v0-teleport-task3"
+        elif "task3" in name:
+            fsa_name = f"Office-v0-{level_name}-task3"
             init_fun = fsa_A_AND_B
             
     elif name == "OfficeAreasRBFOnly-v0-SemiCircle-task1":

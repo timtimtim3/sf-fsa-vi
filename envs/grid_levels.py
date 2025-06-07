@@ -286,6 +286,29 @@ def wrap_level_with_teleport(level_instance, teleport_map: np.ndarray):
     return TeleportCls(**init_kwargs)
 
 
+@dataclass
+class WindMixin:
+    """
+    Mixin that adds a MAX_WIND field to an existing level dataclass.
+    """
+    MAX_WIND: int = field(default=1)  # default wind strength
+
+
+def with_wind(base_cls: Type, name: str = None) -> Type:
+    """
+    Dynamically produce a new dataclass that inherits from (WindMixin, base_cls).
+
+    Args:
+        base_cls:     your existing level-data class (with MAP, PHI_OBJ_TYPES, etc.)
+        name:         optional name for the new class (defaults to "Wind" + base_cls.__name__)
+    Returns:
+        a new @dataclass with all of base_cls’s fields plus MAX_WIND
+    """
+    new_name = name or f"Wind{base_cls.__name__}"
+    NewType = type(new_name, (WindMixin, base_cls), {})
+    return dataclass(NewType)
+
+
 original_office_areas = LevelDataOfficeAreas(
     MAP=np.array([
         [' ', ' ', 'C', ' ', ' ', 'X', ' ', 'C', ' ', ' ', ' '],
@@ -863,6 +886,57 @@ office_areas_rbf_teleport = TeleportRBF(
     TELEPORT_TRANSITIONS={"T1": {"T2": 0.5, "T3": 0.5}}
 )
 
+DoubleSlitRBF = with_wind(LevelDataOfficeAreasRBF, name="DoubleSlitRBF")
+double_slit_rbf = DoubleSlitRBF(
+    MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A'],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B'],
+    ]),
+    RBF_MAP=np.array([
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A_RBF'],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        ['_', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'B_RBF'],
+    ]),
+    PHI_OBJ_TYPES=['A', 'B'],
+    RENDER_COLOR_MAP={
+        "A": [0.6, 0.3, 0],  # Brown
+        "B": [1, 0.6, 0],  # Orange
+        " ": [1, 1, 1],  # White (Empty Space)
+        "_": [1, 1, 1],  # White (Starting Area)
+    },
+    MAP_DEFAULT_D_RBFS=1,
+    QVAL_COLOR_MAP={
+        " ": 2,  # Empty Space
+        "_": 2,  # Start location (same as empty space)
+        "A": 0,  # Object A
+        "B": 1,  # Object B
+    },
+    MAX_WIND=1
+)
+
+double_slit_rbf_wind3 = deepcopy(double_slit_rbf)
+double_slit_rbf_wind3.MAX_WIND = 3
 
 # Dictionary mapping level names to LevelData objects.
 LEVELS = {
@@ -888,5 +962,7 @@ LEVELS = {
     "original_office_areas_rbf": original_office_areas_rbf,
     "original_office_areas_no_obs_rbf": original_office_areas_no_obs_rbf,
     "original_office": original_office,
-    "office_areas_rbf_teleport": office_areas_rbf_teleport
+    "office_areas_rbf_teleport": office_areas_rbf_teleport,
+    "double_slit_rbf": double_slit_rbf,
+    "double_slit_rbf_wind3": double_slit_rbf_wind3
 }
