@@ -81,13 +81,30 @@ def pull_runs(api, run_ids, entity, project, patterns, x_axis,
             run_df = average_cols(run_df, cols=fsa_reward_cols, name="learning/fsa_reward_average")
             run_df = average_cols(run_df, cols=fsa_neg_reward_cols, name="learning/fsa_neg_reward_average")
 
-            if stretch_x_axis:
-                # Stretch x_axis by number of goal‐tasks
-                run_df[x_axis] *= N
+            if stretch_x_axis and repeat_in_stretch and N > 0:
+                # 1) Keep a copy of the original run_df so we can read its x‐axis
+                orig_df   = run_df.copy()
+                orig_x    = orig_df[x_axis].values
+                n_orig    = len(orig_df)
 
-                if repeat_in_stretch and N > 0:
-                    # Repeat each row N times, preserving order
-                    run_df = run_df.loc[run_df.index.repeat(N)].reset_index(drop=True)
+                # 2) Repeat each row N times
+                run_df = (
+                    orig_df
+                    .loc[orig_df.index.repeat(N)]
+                    .reset_index(drop=True)
+                )
+
+                # 3) Build a new, linearly spaced x‐axis from
+                #    orig_x.min() up to (orig_x.max() * N), with
+                #    exactly orig_len * N entries.
+                new_min = orig_x.min()
+                new_max = orig_x.max() * N
+                total   = n_orig * N
+
+                new_x = np.linspace(new_min, new_max, total)
+
+                # 4) Overwrite the x‐axis column
+                run_df[x_axis] = new_x
 
         run_df = run_df.set_index(x_axis)
 
@@ -312,6 +329,8 @@ def main(cfg: DictConfig) -> None:
     "sfols_dqn": sfols,
     "lof_dqn": lof
     }
+    print(dfs["flat_dqn"])
+    print(dfs["sfols_dqn"])
     dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
     # colors = {
     #     "lof_dqn":     "#1f77b4",  # blue
@@ -319,6 +338,7 @@ def main(cfg: DictConfig) -> None:
     #     # "sfols_dqn":   "#d62728",  # red
     #     "sfols_dqn":   "#ff7f0e",
     # }
+    print(dfs["flat_dqn"])
     colors = None
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
