@@ -9,6 +9,7 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
         symbols_to_phi = {symbol: i for i, symbol in enumerate(symbols)}
 
     fsa_name = name
+    kwargs = {}
 
     print(name)
 
@@ -56,6 +57,9 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
             fsa_name = "Office-v0-task6"
             init_fun = fsa_officeAreas6
 
+        if using_lof is not None:
+            kwargs["using_lof"] = using_lof
+
     elif "Office" in name and ("teleport" in name or "doubleSlit" in name):
 
         level_name = next(v for v in ("teleport", "doubleSlit") if v in name)
@@ -75,11 +79,8 @@ def load_fsa(name: str, env, fsa_symbols_from_env=False, using_lof=None):
     else:
         raise NameError()
 
-    kwargs = {}
     if symbols_to_phi is not None:
         kwargs["symbols_to_phi"] = symbols_to_phi
-    if using_lof is not None:
-        kwargs["using_lof"] = using_lof
     g = init_fun(env, fsa_name=fsa_name, **kwargs)
     
     return g

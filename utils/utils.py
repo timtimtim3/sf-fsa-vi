@@ -127,6 +127,23 @@ def setup_run_dir(
     )
 
 
+def get_base_save_dir(train_env, dir_postfix, use_batch_dir, batch_run_name, batch_dir_postfix, method="sfols"):
+    if use_batch_dir:
+        if batch_run_name is None:
+            raise ValueError("batch_run_name cannot be None if you're using a batch folder, " \
+            "specify batch_run_name as something like 'run1'")
+        batch_directory = "Batch-" + train_env.unwrapped.spec.id
+        if batch_dir_postfix is not None:
+            batch_directory = "-".join([batch_directory, batch_dir_postfix])
+        base_save_dir = f"results/{method}/{batch_directory}/{batch_run_name}"
+    else:
+        directory = train_env.unwrapped.spec.id
+        if dir_postfix is not None:
+            directory = "-".join([directory, dir_postfix])
+        base_save_dir = f"results/{method}/{directory}"
+    return base_save_dir
+
+
 def do_planning(planning, gpi_agent, eval_env, wb=None, n_iters=5, eval_episodes=1, use_regular_gpi_exec=True,
                 set_non_goal_zero=False, **kwargs):
     W = None
