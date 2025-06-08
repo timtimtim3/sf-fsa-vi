@@ -2,9 +2,10 @@ import fnmatch
 import os
 from typing import Union
 import pandas as pd
+from utils.utils import read_wandb_run_history
 import wandb
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
@@ -222,7 +223,7 @@ def plot_metric_across_runs(
             if not np.all(np.isnan(ystd)):
                 lower = yi - std_multiplier * ystd
                 upper = yi + std_multiplier * ystd
-                ax.fill_between(xi, lower, upper, color=color, alpha=0.2)
+                ax.fill_between(xi, lower, upper, color=color, alpha=0.15)
 
     ax.set_xlim(global_min, global_max)
     ax.legend()
@@ -293,13 +294,81 @@ def smooth_dfs(
     return smoothed
 
 
+def normalize_run_ids(run_ids_specs):
+    """
+    Given a list like [flatdqn_run_ids, sfols_run_ids, lof_run_ids],
+    where each element is either:
+      - a list of run‐IDs, or
+      - a string path to a save‐folder
+    return a new list of lists, where any string has been replaced
+    by load_ids_from_folder(path).
+    """
+    return [load_ids_from_folder_if_str(spec) for spec in run_ids_specs]
+
+
+def load_ids_from_folder_if_str(run_ids):
+    """
+    If `run_ids` is a string, treat it as a save_folder path
+    and load the most recent WandB IDs from that folder.
+    Otherwise assume it's already a list and just return it.
+    """
+    if isinstance(run_ids, str):
+        return load_ids_from_folder(run_ids)
+    return run_ids
+
+
+def load_ids_from_folder(save_folder):
+    """
+    Look inside `save_folder` for subdirectories, read their WandB history,
+    and collect the most recent run ID from each. If there are no subdirs,
+    look only in `save_folder` itself.
+    """
+    ids = []
+
+    # 1) List immediate subdirectories (if the folder doesn't exist, error out)
+    try:
+        entries = os.listdir(save_folder)
+    except FileNotFoundError:
+        raise RuntimeError(f"Save‐folder not found: {save_folder}")
+
+    sub_dirs = [e for e in entries
+                if os.path.isdir(os.path.join(save_folder, e))]
+
+    # 2) If no subdirectories, just look in the folder itself
+    if not sub_dirs:
+        sub_dirs = [""]
+
+    # 3) For each subdirectory, read the WandB history and grab the last run ID
+    for sub in sub_dirs:
+        path = os.path.join(save_folder, sub)
+        hist = read_wandb_run_history(path)      # returns a list of (time, run_id) tuples
+        if not hist:
+            continue
+        _, most_recent_id = hist[-1]
+        ids.append(most_recent_id)
+
+    return ids
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="default")
 def main(cfg: DictConfig) -> None:
+    # 1) Plain‐old dict (with all interpolations resolved)
+    plain = OmegaConf.to_container(cfg, resolve=True)
+
+    # 2) Extract the nested group
+    nested = plain.pop("wandb_gather_run_ids", {})
+
+    # 3) Merge it back into the top level
+    plain.update(nested)
+
+    # 4) Reconstruct a DictConfig
+    cfg = OmegaConf.create(plain)
+
     save = cfg.get("save", False)
     truncate_at_min = cfg.get("truncate_at_min", True)
     save_dir = cfg.get("save_dir", None)
     if save_dir is None:
-        save_dir = os.path.join("results", "wandb_plots", cfg.env_name)
+        save_dir = os.path.join("results", "wandb_plots", cfg.run_ids.env_name)
     else:
         save_dir = os.path.join("results", "wandb_plots", save_dir)
 
@@ -312,9 +381,15 @@ def main(cfg: DictConfig) -> None:
     ]
     x_axis = "learning/total_timestep"
 
-    flatdqn_run_ids = cfg.get("flatdqn_run_ids", [])
-    sfols_run_ids   = cfg.get("sfols_run_ids", [])
-    lof_run_ids     = cfg.get("lof_run_ids", [])
+    flatdqn_run_ids = cfg.run_ids.get("flatdqn_run_ids", [])
+    sfols_run_ids   = cfg.run_ids.get("sfols_run_ids", [])
+    lof_run_ids     = cfg.run_ids.get("lof_run_ids", [])
+
+    flatdqn_run_ids, sfols_run_ids, lof_run_ids = normalize_run_ids([
+        flatdqn_run_ids,
+        sfols_run_ids,
+        lof_run_ids
+    ])
 
     flatdqn = pull_runs(api, flatdqn_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, 
                         x_axis="learning/timestep", compute_average_from_fsa_reward=True, stretch_x_axis=True, 
@@ -325,17 +400,11 @@ def main(cfg: DictConfig) -> None:
     lof = pull_runs(api, lof_run_ids, cfg.wandb.entity, cfg.wandb.project, patterns, x_axis=x_axis)
 
     dfs = {
-    "flat_dqn": flatdqn,
-    "sfols_dqn": sfols,
-    "lof_dqn": lof
+        "flat_dqn": flatdqn,
+        "sfols_dqn": sfols,
+        "lof_dqn": lof
     }
     dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
-    # colors = {
-    #     "lof_dqn":     "#1f77b4",  # blue
-    #     "flat_dqn":    "#2ca02c",  # green
-    #     # "sfols_dqn":   "#d62728",  # red
-    #     "sfols_dqn":   "#ff7f0e",
-    # }
     colors = None
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 

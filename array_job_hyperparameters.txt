@@ -1,0 +1,5 @@
++seed=1001 +batch_run_name="run1"
++seed=1002 +batch_run_name="run2"
++seed=1003 +batch_run_name="run3"
++seed=1004 +batch_run_name="run4"
++seed=1005 +batch_run_name="run5"

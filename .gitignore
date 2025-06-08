@@ -10,7 +10,7 @@ __pycache__/
 # C extensions
 *.so
 
-conf/run_ids*.yaml
+*run_ids*.yaml
 
 # Distribution / packaging
 .Python
