@@ -367,6 +367,8 @@ def main(cfg: DictConfig) -> None:
     save = cfg.get("save", False)
     truncate_at_min = cfg.get("truncate_at_min", True)
     save_dir = cfg.get("save_dir", None)
+    smooth = cfg.get("smooth", True)
+
     if save_dir is None:
         save_dir = os.path.join("results", "wandb_plots", cfg.run_ids.env_name)
     else:
@@ -404,7 +406,8 @@ def main(cfg: DictConfig) -> None:
         "sfols_dqn": sfols,
         "lof_dqn": lof
     }
-    dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
+    if smooth:
+        dfs = smooth_dfs(dfs, window_size=10, x_axis=x_axis)
     colors = None
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
