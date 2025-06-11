@@ -55,16 +55,12 @@ def main(cfg: DictConfig) -> None:
     lof = hydra.utils.call(config=cfg.algorithm, env=train_env, eval_env=eval_envs, T=Ts)
     lof.load(base_dir=base_save_dir)
 
-    # now you can evaluate, visualize, etc.
-    # success, reward, neg_step_r = lof.evaluate_metapolicy(reset=False)
-    # print(f"Success={success}, Reward={reward}")
-    # … any other analysis …
-
     lof.plot_q_vals(base_dir=os.path.join(base_save_dir, "options"))
 
     lof.train_metapolicies(iters=1000, reset_train=True)
     log_dict = lof.evaluate_fsa(reset=False)
     print(log_dict)
+    
     lof.plot_meta_qvals(base_dir=base_save_dir)
 
 
