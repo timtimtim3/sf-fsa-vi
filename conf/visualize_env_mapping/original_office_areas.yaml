@@ -1,0 +1,14 @@
+# conf/visualize_env_mapping/original_office_areas.yaml
+
+# Symbol → Unicode (or literal) mapping for the “original_office_areas” env
+mapping:
+  C: "\uf7b6"  # faMugHot
+  M: "\uf0e0"  # faEnvelope
+  O: "o"       # plain letter
+  _: "\uf70c"  # faRunning (agent start)
+
+# Which keys to render with the Font Awesome TTF
+font_keys:
+  - C
+  - M
+  - _

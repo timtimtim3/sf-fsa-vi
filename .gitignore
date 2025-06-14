@@ -11,6 +11,7 @@ __pycache__/
 *.so
 
 *run_ids*.yaml
+visualize_env/
 
 # Distribution / packaging
 .Python

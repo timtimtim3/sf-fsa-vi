@@ -1,3 +1,4 @@
 defaults:
   - _self_
   - env: ???
+  - visualize_env_mapping: ???

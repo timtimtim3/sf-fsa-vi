@@ -1,0 +1,10 @@
+mapping:
+  A: "A"
+  B: "B"
+  _: "\uf70c"   # faRunning (agent start)
+
+# Only ‘_’ needs FA; the others are math/plain text
+font_keys:
+  - _
+
+letter_font: cmr

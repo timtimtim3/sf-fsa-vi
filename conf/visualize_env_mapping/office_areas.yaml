@@ -1,0 +1,23 @@
+#mapping:
+#  A: "\uf7b6"  # faMugHot
+#  B: "\uf0e0"  # faEnvelope
+#  C: "o"       # plain letter
+#  _: "\uf70c"  # faRunning (agent start)
+#
+## Which keys to render with the Font Awesome TTF
+#font_keys:
+#  - A
+#  - B
+#  - _
+
+mapping:
+  A: "A"
+  B: "B"
+  C: "C"
+  _: "\uf70c"   # faRunning (agent start)
+
+# Only ‘_’ needs FA; the others are math/plain text
+font_keys:
+  - _
+
+letter_font: cmr
