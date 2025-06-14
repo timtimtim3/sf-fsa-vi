@@ -1663,6 +1663,15 @@ class OfficeAreasFeaturesMixin(GridEnvProtocol):
         if isinstance(level, TeleportMixin):
             self.TELEPORT_TRANSITIONS = get_teleport_transitions_from_map(level)
             self.TELEPORT_COORDS = set(self.TELEPORT_TRANSITIONS.keys())
+            self.TELEPORT_MAP = level.TELEPORT_MAP
+
+            self.teleport_start_coords = set()
+            self.teleport_to_coords = set()
+            for tele_coord, transition_data in self.TELEPORT_TRANSITIONS.items():
+                self.teleport_start_coords.add(tele_coord)
+                tele_to_coords = transition_data["coords"]
+                for tele_to_coord in tele_to_coords:
+                    self.teleport_to_coords.add(tele_to_coord)
 
         if isinstance(level, WindMixin):
             self.MAX_WIND = level.MAX_WIND
