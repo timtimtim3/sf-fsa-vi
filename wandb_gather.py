@@ -9,6 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
+import matplotlib.ticker as ticker
 
 
 n_tasks = None
@@ -159,34 +160,22 @@ def plot_metric_across_runs(
     linewidth: float = 1,
     save: bool = False,
     timestamp: Union[str , None] = None,
-    truncate_at_min: bool = True
+    truncate_at_min: bool = True,
+    fixate_y_ticks: bool = False,
+    display_marker_n_times: Union[dict[str, int], None] = None
 ):
     """
     Given a dict of DataFrames `dfs` (keyed by label), each containing columns
     `x_axis`, `ycol`, and optionally `ycol + "/std"`, plot each series on the same
-    figure. If `ycol + "/std"` is present and not all NaN, shade ±(std_multiplier * std)
-    around the mean line, using the same color but transparent. Optionally save to PNG.
-
-    - dfs: e.g. {"flatdqn": flatdqn_df, "sfols": sfols_df, "lof": lof_df} or some values may be None
-    - x_axis: name of the column to use for the x-axis
-    - ycol: name of the mean column to plot
-    - colors: optional dict mapping each key in `dfs` to a matplotlib color
-              e.g. {"flatdqn": "green", "sfols": "red", "lof": "blue"}
-    - xlabel, ylabel, title: optional labels
-    - std_multiplier: how many standard deviations to shade (default = 1.0)
-    - save_dir: directory in which to save the figure (default "results")
-    - linewidth: width of the plot lines
-    - save: if True, write out a PNG under `save_dir`
-    - timestamp: override for filename timestamp (otherwise uses now)
-    - truncate_at_min: if True, find the smallest “maximum x_axis” among dfs and set x_max to that;
-                       if False, use the overall maximum x_axis
+    figure. Now forces the y-axis to run from the next lower multiple of 25 up to +25,
+    shows ticks at multiples of 25 up to 0, and optionally displays N markers
+    per curve evenly spaced along the x-axis.
     """
     if colors is None:
         colors = {"lof_dqn": "blue", "flat_dqn": "green", "sfols_dqn": "red"}
 
     # Determine all max and min x-axis values across non-None DataFrames
-    x_mins = []
-    x_maxs = []
+    x_mins, x_maxs = [], []
     for df in dfs.values():
         if df is None or x_axis not in df.columns:
             continue
@@ -200,12 +189,13 @@ def plot_metric_across_runs(
         raise RuntimeError("No valid x_axis data found in any DataFrame.")
 
     global_min = min(x_mins)
-    if truncate_at_min:
-        global_max = min(x_maxs)
-    else:
-        global_max = max(x_maxs)
+    global_max = min(x_maxs) if truncate_at_min else max(x_maxs)
 
+    # Prepare figure
     fig, ax = plt.subplots()
+
+    # Collect minima for y-axis adjustment
+    ymins = []
 
     for label, df in dfs.items():
         if df is None or x_axis not in df.columns or ycol not in df.columns:
@@ -215,17 +205,54 @@ def plot_metric_across_runs(
         yi = df[ycol].values
         color = colors.get(label, None)
 
+        # Plot mean line
         ax.plot(xi, yi, label=label, color=color, linewidth=linewidth)
 
+        # Track y-min from mean±std (if std exists)
         std_col = f"{ycol}/std"
-        if std_col in df.columns:
+        if std_col in df.columns and not np.all(np.isnan(df[std_col].values)):
             ystd = df[std_col].values
-            if not np.all(np.isnan(ystd)):
-                lower = yi - std_multiplier * ystd
-                upper = yi + std_multiplier * ystd
-                ax.fill_between(xi, lower, upper, color=color, alpha=0.15)
+            ymins.append(np.min(yi - std_multiplier * ystd))
+            lower = yi - std_multiplier * ystd
+            upper = yi + std_multiplier * ystd
+            ax.fill_between(xi, lower, upper, color=color, alpha=0.15)
+        else:
+            ymins.append(np.min(yi))
 
+        # place N markers starting at x=global_min, last one one step before global_max
+        if display_marker_n_times is not None:
+            N = display_marker_n_times.get(label)
+            if isinstance(N, int) and N > 0:
+                # compute step size so markers sit at:
+                #   x = global_min + k*(global_max-global_min)/N,  k=0..N-1
+                step_x = (global_max - global_min) / N
+                x_marks = global_min + step_x * np.arange(N)
+                y_marks = np.interp(x_marks, xi, yi)
+
+                ax.scatter(
+                    x_marks, y_marks,
+                    color=color,
+                    marker='*',
+                    s=30,      # smaller dot size
+                    alpha=0.8,   # 50% opacity
+                    zorder=3
+                )
+
+    # Set x-limits
     ax.set_xlim(global_min, global_max)
+
+    # === Updated: extend y-axis up to +25, but only tick from bottom to 0 ===
+    if fixate_y_ticks:
+        step = 25
+        raw_min = min(ymins)
+        y_bottom = step * np.floor(raw_min / step)
+        y_top = 25
+        ax.set_ylim(y_bottom, y_top)
+        # Only show ticks at multiples of 25 up to 0
+        ticks = np.arange(-200, 1, step)   # e.g. [-200, -175, ..., -25, 0]
+        ax.set_yticks(ticks)
+
+    # Finish up
     ax.legend()
     ax.grid(True)
     ax.set_xlabel(xlabel or x_axis)
@@ -236,12 +263,9 @@ def plot_metric_across_runs(
     plt.tight_layout()
 
     if save:
-        # Ensure save directory exists
         os.makedirs(save_dir, exist_ok=True)
         if timestamp is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Sanitize ycol for filename (replace slashes)
         ycol_safe = ycol.replace("/", "_")
         filename = f"{ycol_safe}_{timestamp}.png"
         save_path = os.path.join(save_dir, filename)
@@ -368,6 +392,13 @@ def main(cfg: DictConfig) -> None:
     truncate_at_min = cfg.get("truncate_at_min", True)
     save_dir = cfg.get("save_dir", None)
     smooth = cfg.get("smooth", True)
+    title = cfg.get("title", None)
+
+    display_marker_n_times = {
+        "sfols_dqn": cfg.get("display_marker_n_times_sfols", None), 
+        "lof_dqn": cfg.get("display_marker_n_times_lof", None),
+        "flat_dqn": cfg.get("display_marker_n_times_flatq", None),
+        }
 
     if save_dir is None:
         save_dir = os.path.join("results", "wandb_plots", cfg.run_ids.env_name)
@@ -416,28 +447,31 @@ def main(cfg: DictConfig) -> None:
         x_axis="learning/total_timestep",
         ycol="learning/fsa_neg_reward_average",
         colors=colors,
-        xlabel="Total Timestep",
+        xlabel="Total Timesteps",
         ylabel=f"Mean Neg. Step Reward",
-        title=f"Mean Neg. Step Reward over {n_tasks} FSA tasks ±1 STD",
+        title=title if title is not None else f"Mean Neg. Step Reward over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp,
         truncate_at_min=truncate_at_min,
-        save_dir=save_dir
+        save_dir=save_dir,
+        fixate_y_ticks=True,
+        display_marker_n_times=display_marker_n_times
     )
     plot_metric_across_runs(
         dfs,
         x_axis="learning/total_timestep",
         ycol="learning/fsa_reward_average",
         colors=colors,
-        xlabel="Total Timestep",
+        xlabel="Total Timesteps",
         ylabel=f"Mean FSA Reward (Success)",
-        title=f"Mean FSA Reward (Success) over {n_tasks} FSA tasks ±1 STD",
+        title=title if title is not None else f"Mean FSA Reward (Success) over {n_tasks} FSA tasks ±1 STD",
         std_multiplier=1.0,
         save=save,
         timestamp=timestamp,
         truncate_at_min=truncate_at_min,
-        save_dir=save_dir
+        save_dir=save_dir,
+        display_marker_n_times=display_marker_n_times
     )
 
 
