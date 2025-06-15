@@ -162,7 +162,8 @@ def plot_metric_across_runs(
     timestamp: Union[str , None] = None,
     truncate_at_min: bool = True,
     fixate_y_ticks: bool = False,
-    display_marker_n_times: Union[dict[str, int], None] = None
+    display_marker_n_times: Union[dict[str, int], None] = None,
+    use_sci_x: bool = False
 ):
     """
     Given a dict of DataFrames `dfs` (keyed by label), each containing columns
@@ -238,8 +239,15 @@ def plot_metric_across_runs(
                     zorder=3
                 )
 
-    # Set x-limits
+    # 3) x-axis limits and optional scientific scaling
     ax.set_xlim(global_min, global_max)
+    if use_sci_x:
+        # let matplotlib do the scaling and draw the "×10^6" offset text for us
+        ax.ticklabel_format(style="sci", axis="x", scilimits=(6,6))
+        # use math‐text for the offset
+        ax.xaxis.get_major_formatter().set_useMathText(True)
+    # always label normally; the offset text will appear automatically if use_sci_x
+    ax.set_xlabel(xlabel or x_axis)
 
     # === Updated: extend y-axis up to +25, but only tick from bottom to 0 ===
     if fixate_y_ticks:
@@ -253,7 +261,7 @@ def plot_metric_across_runs(
         ax.set_yticks(ticks)
 
     # Finish up
-    ax.legend()
+    ax.legend(loc="upper left")
     ax.grid(True)
     ax.set_xlabel(xlabel or x_axis)
     ax.set_ylabel(ylabel or ycol)
@@ -456,7 +464,8 @@ def main(cfg: DictConfig) -> None:
         truncate_at_min=truncate_at_min,
         save_dir=save_dir,
         fixate_y_ticks=True,
-        display_marker_n_times=display_marker_n_times
+        display_marker_n_times=display_marker_n_times,
+        use_sci_x=True
     )
     plot_metric_across_runs(
         dfs,
@@ -471,7 +480,8 @@ def main(cfg: DictConfig) -> None:
         timestamp=timestamp,
         truncate_at_min=truncate_at_min,
         save_dir=save_dir,
-        display_marker_n_times=display_marker_n_times
+        display_marker_n_times=display_marker_n_times,
+        use_sci_x=True
     )
 
 
