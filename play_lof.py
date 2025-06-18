@@ -61,8 +61,10 @@ def main(cfg: DictConfig) -> None:
     fsa_to_load = cfg.fsa_name if isinstance(cfg.fsa_name, ListConfig) else [cfg.fsa_name]
     for fsa_name in fsa_to_load:
         # Create the FSA env wrapper, to evaluate the FSA
-        fsa, T = load_fsa('-'.join(["Office-v0", fsa_name]), eval_env,
-                          fsa_symbols_from_env=fsa_symbols_from_env, using_lof=True)  # Load FSA
+        fsa, T = load_fsa('-'.join([env_name, fsa_name]), eval_env,
+                    fsa_symbols_from_env=fsa_symbols_from_env, using_lof=True)  # Load FSA
+        # fsa, T = load_fsa('-'.join(["Office-v0", fsa_name]), eval_env,
+        #                   fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
         fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
         eval_envs.append(fsa_env)
         Ts.append(T)
