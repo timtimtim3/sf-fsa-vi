@@ -9,6 +9,8 @@ from omegaconf import DictConfig, OmegaConf
 from envs.wrappers import FlatQEnvWrapper
 from utils.utils import get_base_save_dir, seed_everything, setup_run_dir, save_config
 from hydra.utils import instantiate, get_class
+import matplotlib as mpl
+
 
 EVAL_EPISODES = 20
 n_iters = 10
@@ -21,6 +23,20 @@ def main(cfg: DictConfig) -> None:
     use_batch_dir = cfg.get("use_batch_dir", False)
     batch_dir_postfix = cfg.get("batch_dir_postfix", None)
     batch_run_name = cfg.get("batch_run_name", None)
+    font_scale = cfg.get("font_scale", 1.0)  # e.g., 1.2 = 20% larger fonts
+
+    # Global font size scaling (increase as needed)
+    base_font_size = 10 
+    mpl.rcParams.update({
+        "axes.titlesize": base_font_size * font_scale,
+        "axes.labelsize": base_font_size * font_scale,
+        "xtick.labelsize": base_font_size * font_scale,
+        "ytick.labelsize": base_font_size * font_scale,
+        "legend.fontsize": base_font_size * font_scale,
+        "legend.title_fontsize": base_font_size * font_scale,
+        "figure.titlesize": base_font_size * font_scale,
+        "mathtext.fontset": "stix",
+    })
 
     # disable WANDB logging
     wb.init(mode="disabled")

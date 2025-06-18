@@ -44,6 +44,7 @@ def main(cfg: DictConfig) -> None:
         "xtick.labelsize": base_font_size * font_scale,
         "ytick.labelsize": base_font_size * font_scale,
         "legend.fontsize": base_font_size * font_scale,
+        "legend.title_fontsize": base_font_size * font_scale,
         "figure.titlesize": base_font_size * font_scale,
         "mathtext.fontset": "stix",
     })

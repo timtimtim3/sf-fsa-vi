@@ -27,6 +27,7 @@ def main(cfg: DictConfig) -> None:
         "xtick.labelsize": base_font_size * font_scale,
         "ytick.labelsize": base_font_size * font_scale,
         "legend.fontsize": base_font_size * font_scale,
+        "legend.title_fontsize": base_font_size * font_scale,
         "figure.titlesize": base_font_size * font_scale,
         "mathtext.fontset": "stix",
     })
@@ -61,7 +62,7 @@ def main(cfg: DictConfig) -> None:
     for fsa_name in fsa_to_load:
         # Create the FSA env wrapper, to evaluate the FSA
         fsa, T = load_fsa('-'.join(["Office-v0", fsa_name]), eval_env,
-                          fsa_symbols_from_env=fsa_symbols_from_env)  # Load FSA
+                          fsa_symbols_from_env=fsa_symbols_from_env, using_lof=True)  # Load FSA
         fsa_env = GridEnvWrapper(eval_env, fsa, fsa_init_state="u0", T=T)
         eval_envs.append(fsa_env)
         Ts.append(T)
