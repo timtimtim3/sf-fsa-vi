@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 import matplotlib.ticker as ticker
+import matplotlib as mpl
 
 
 n_tasks = None
@@ -401,6 +402,19 @@ def main(cfg: DictConfig) -> None:
     save_dir = cfg.get("save_dir", None)
     smooth = cfg.get("smooth", True)
     title = cfg.get("title", None)
+    font_scale = cfg.get("font_scale", 1.0)  # e.g., 1.2 = 20% larger fonts
+
+    # Global font size scaling (increase as needed)
+    base_font_size = 10 
+    mpl.rcParams.update({
+        "axes.titlesize": base_font_size * font_scale,
+        "axes.labelsize": base_font_size * font_scale,
+        "xtick.labelsize": base_font_size * font_scale,
+        "ytick.labelsize": base_font_size * font_scale,
+        "legend.fontsize": base_font_size * font_scale,
+        "figure.titlesize": base_font_size * font_scale,
+        "mathtext.fontset": "stix",
+    })
 
     display_marker_n_times = {
         "sfols_dqn": cfg.get("display_marker_n_times_sfols", None), 

@@ -11,7 +11,8 @@ import envs
 from envs.wrappers import GridEnvWrapper
 from envs.utils import get_rbf_activation_data, get_fourier_activation_data
 from sfols.plotting.plotting import plot_all_rbfs, plot_all_fourier, plot_gpi_qvals, plot_trajectories
-from utils.utils import save_config, do_planning
+from utils.utils import get_base_save_dir, save_config, do_planning
+import matplotlib as mpl
 
 
 EVAL_EPISODES = 5
@@ -29,7 +30,23 @@ def main(cfg: DictConfig) -> None:
     use_regular_gpi_exec = cfg.get("use_regular_gpi_exec", True)
     fsa_symbols_from_env = cfg.get("fsa_symbols_from_env", False)
 
-    dir_date_postfix = cfg.get("dir_postfix", None)
+    dir_postfix = cfg.get("dir_postfix", None)
+    use_batch_dir = cfg.get("use_batch_dir", False)
+    batch_dir_postfix = cfg.get("batch_dir_postfix", None)
+    batch_run_name = cfg.get("batch_run_name", None)
+    font_scale = cfg.get("font_scale", 1.0)  # e.g., 1.2 = 20% larger fonts
+
+    # Global font size scaling (increase as needed)
+    base_font_size = 10 
+    mpl.rcParams.update({
+        "axes.titlesize": base_font_size * font_scale,
+        "axes.labelsize": base_font_size * font_scale,
+        "xtick.labelsize": base_font_size * font_scale,
+        "ytick.labelsize": base_font_size * font_scale,
+        "legend.fontsize": base_font_size * font_scale,
+        "figure.titlesize": base_font_size * font_scale,
+        "mathtext.fontset": "stix",
+    })
 
     wb.init(mode="disabled")
 
@@ -103,11 +120,8 @@ def main(cfg: DictConfig) -> None:
     # -----------------------------------------------------------------------------
     # 1) LOAD PREVIOUSLY SAVED POLICIES FROM .PKL FILES
     # -----------------------------------------------------------------------------
-    directory = train_env.unwrapped.spec.id
-    if dir_date_postfix is not None:
-        dir_date_postfix = "-" + dir_date_postfix
-        directory += dir_date_postfix
-    base_save_dir = f"results/sfols/{directory}"
+    base_save_dir = get_base_save_dir(train_env, dir_postfix, use_batch_dir, batch_run_name, batch_dir_postfix, 
+                                      method="sfols")
     save_config(cfg, base_dir=base_save_dir, type='play')
 
     gpi_agent.load_tasks(base_save_dir)
