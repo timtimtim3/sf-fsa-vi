@@ -1,37 +1,15 @@
-[![Python 3.10.1](https://img.shields.io/badge/Python-3.10.1-blue)](https://www.python.org/downloads/release/python-3101/)
+[![Python 3.9.18](https://img.shields.io/badge/Python-3.9.18-blue)](https://www.python.org/downloads/release/python-3918/)
 
 # SF-FSA-VI
 
-Code base for the paper [Planning with a Learned Policy Basis to Optimally Solve Complex Tasks](https://arxiv.org/abs/2403.15301) publisheed at ICAPS 2024.
+Code base for the paper "Learning Spatially Refined Sub-Policies for Temporal Task Composition in Continuous RL".
 
 **Authors:** 
 
-- **Guillermo Infante [^*], Anders Jonsson and Vicenç Gómez** (AI&ML research group, Universitat Pompeu Fabra)
-- **David Kuric [^*] and Herke van Hoof** (AMLab University of Amsterdam)
+- **Tim van Gelder, supervised by Herke van Hoof** (AMLab University of Amsterdam)
 
 
 ## *Abstract*
 
-> Conventional reinforcement learning (RL) methods can successfully solve a wide range of sequential decision problems. However, learning policies that can generalize predictably across multiple tasks in a setting with non-Markovian reward specifications is a challenging problem. We propose to use successor features to learn a policy basis so that each (sub)policy in it solves a well-defined subproblem. In a task described by a finite state automaton (FSA) that involves the same set of subproblems, the combination of these (sub)policies can then be used to generate an optimal solution without additional learning.  In contrast to other methods that combine (sub)policies via planning, our method asymptotically attains global optimality, even in stochastic environments.
+> Traditional Reinforcement Learning (RL) methods can solve complex, long-horizon tasks, but typically fail to generalize to new, non-Markovian tasks without extensive re-training. Compositional methods like SF-OLS and LOF aim to address this issue by learning a set of sub-policies that can be composed at test time to solve unseen temporally extended tasks—specified as finite state automata (FSA)—in a zero-shot manner. While SF-OLS offers several advantages over other compositional methods, including faster value function composition and global optimality under stochastic dynamics, it has thus far only been applied in discrete domains. We extend SF-OLS to continuous state spaces by defining features—such as Radial Basis Functions (RBFs)—over the continuous domain, and introducing a new regression-based value iteration algorithm to compute optimal weights for unseen FSA tasks. Our method enables more globally efficient planning in environments where goals span spatial regions rather than single points or tiles, owing to its ability to learn sub-policies that selectively target different parts of a goal area. Additionally, we demonstrate that the approach achieves optimal behavior in stochastic environments, outperforming alternative compositional baselines like LOF.
 
-
-### Citing us
-If you cite our paper in your research please use the following BibTeX entry:
-```BibTeX
-@article{Kuric_Infante_2024,
-title={Planning with a Learned Policy Basis to Optimally Solve Complex Tasks},
-journal={Proceedings of the International Conference on Automated Planning and Scheduling},
-author={Kuric, David and Infante, Guillermo and Gómez, Vicenç and Jonsson, Anders and van Hoof, Herke},
-year={2024},
-month={May},
-volume={34},
-number={1}, 
-pages={333-341},
-url={https://ojs.aaai.org/index.php/ICAPS/article/view/31492},
-DOI={10.1609/icaps.v34i1.31492},
-}
-```
-
-
-
-[^*]: Contributed equally.
