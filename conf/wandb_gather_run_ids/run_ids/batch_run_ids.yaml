@@ -1,0 +1,7 @@
+env_name: "Original"
+
+flatdqn_run_ids: "results/flatq/Batch-OfficeAreasFeaturesContinuous-v0-Original-350k" 
+
+sfols_run_ids: "results/sfols/Batch-OfficeAreasFeaturesContinuous-v0-Original-TermOnlyOnTerm-150k"
+
+lof_run_ids: "results/lof/Batch-OfficeAreasFeaturesContinuous-v0-Original-175k-87k"

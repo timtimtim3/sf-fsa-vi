@@ -1,0 +1,17 @@
+env_name: "Original"
+
+flatdqn_run_ids:
+  - 4ifz01sa # 350k
+  # - cazo8la1 # 200k
+
+sfols_run_ids:
+  - ljhxb6l6 # Augmented 150k TerminateActionOnlyOnTerm
+  # - 0njaii13 # Augmented 90k TerminateActionOnlyOnTerm
+  # - 0q87df7c # Augmented 90k TerminateAction
+  # - s6wq6ep3 # Augmented 90k
+  # - qztoiaws # Mean 100k
+  # -  97n0thg5 # Augmented 100k
+  
+lof_run_ids:
+  - m97yp5zg # 175k
+  # - n2pnrrcm #100k
