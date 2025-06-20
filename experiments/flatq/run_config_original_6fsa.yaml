@@ -1,0 +1,58 @@
+seed: 1001
+num_iters: 100
+max_iter_ols: 30
+env:
+  env_name: OfficeAreasFeaturesContinuous-v0
+  planning_constraint: null
+  restriction: null
+  add_obj_to_start: true
+  add_empty_to_start: true
+  level_name: original_office_areas_rbf
+  terminate_action: false
+ols:
+  epsilon: 0.02
+  max_value: 1
+  min_value: 0
+  reverse_extremum: false
+gpi:
+  init:
+    log: false
+  learn:
+    total_timesteps: 10000
+    use_gpi: true
+    eval_freq: 500
+    reset_num_timesteps: false
+    reset_learning_starts: true
+    avg_td_step: -1
+    avg_td_threshold: -1
+algorithm:
+  _target_: sfols.rl.successor_features.flat_dqn.DQN
+  gamma: 0.99
+  initial_epsilon: 1
+  final_epsilon: 0.1
+  epsilon_decay_steps: 85000
+  log: true
+  learning_starts: 100
+  learning_rate: 0.0003
+  normalize_inputs: true
+  per: false
+  net_arch:
+  - 256
+  - 256
+  total_timesteps: 175000
+  eval_freq: 5000
+wandb:
+  entity: timtimtim3
+  project: sf-fsa-vi
+fsa_name:
+- task1
+- task2
+- task3
+- task4
+- task5
+- task6
+plot: true
+fsa_symbols_from_env: true
+use_batch_dir: true
+batch_dir_postfix: Original-6FSA-175k
+batch_run_name: run1
