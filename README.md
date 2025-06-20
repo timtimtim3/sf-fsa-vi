@@ -1,6 +1,6 @@
 [![Python 3.9.18](https://img.shields.io/badge/Python-3.9.18-blue)](https://www.python.org/downloads/release/python-3918/)
 
-# SF-FSA-VI
+# SF-FSA-VI Regression
 
 Code base for the paper *"Learning Spatially Refined Sub-Policies for Temporal Task Composition in Continuous RL"*. An extension of SF-FSA-VI for continuous RL environments, enabling the learning and composition of spatially targeted sub-policies for temporally extended tasks.
 
